@@ -4,42 +4,9 @@ package vfs
 
 import (
 	"fmt"
+	"os"
+	"path"
 )
-
-// Basic filesystem entry structure.
-type entry struct {
-	// Path to the file.
-	Path *Path
-}
-
-// Directory is a filesystem entry structure which representing
-// directories.
-type Drirectory struct {
-	// Basic entry specific things.
-	entry
-	// Directory name.
-	Name string
-}
-
-// Track is a filesystem entry structure representing track.
-// In VFS terms track can represents whole file (usually MP3 file
-// in some particular folder equals one track from an album), or piece
-// of some physical file (e. g. FLAC file can consists from many tracks).
-type Track struct {
-	// Basic entry specific things.
-	entry
-	// Track media information.
-	Tag int // XXX: ??? //*audio.Tag
-	// If Part is true it means this track represents piece of the 
-	// actual file, not the whole file. E. g. we have album FLAC file
-	// and this track points only to one song in this FLAC file (which is
-	// album itself).
-	Part bool
-	// Track beginning in the physical file.
-	Start int
-	// Track end position in the physical file.
-	End int
-}
 
 // Virtual File System structure.
 type Vfs struct {
@@ -77,4 +44,59 @@ func (fs *Vfs) Cd(dir string) error {
 	fs.wd = &newWd
 
 	return nil
+}
+
+// List returns current directory content.
+// All directory entries (Directory and Track structs) are sorted in the next way:
+// alphabetic order sorted directories come first,
+// alphabetic sorted files comes after directories list.
+func (fs *Vfs) List() (entries []interface{}, err error) {
+	// TODO: Directory listing alghorythm here is not optimal and I promice
+	//       improve it in the future.
+
+	baseDir := ToOsPath(fs.wd)
+	dir, err := os.Open(baseDir)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+
+	dirEntries := make(directorySlice, 0, len(names))
+	fileEntries := make([]*Track, 0, len(names))
+
+	for _, name := range names {
+		filename := path.Join(baseDir, name)
+		fi, err := os.Stat(filename)
+		if err != nil {
+			return nil, err
+		}
+
+		if fi.IsDir() {
+			p := copyPath(fs.wd)
+			p.Join(name)
+			dir := &Directory{Path: p, Name: name}
+			dirEntries = append(dirEntries, dir)
+		} else if false {
+			// TODO:
+		} else {
+			// Unsupported entry type.
+		}
+	}
+
+	dirEntries.Sort()
+
+	entries = make([]interface{}, 0, len(dirEntries)+len(fileEntries))
+	for _, dir := range dirEntries {
+		entries = append(entries, dir)
+	}
+	for _, file := range fileEntries {
+		entries = append(entries, file)
+	}
+
+	return entries, nil
 }

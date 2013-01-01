@@ -25,6 +25,11 @@ func newPath(p string) *Path {
 	return &Path{root: ROOT, filepath: p}
 }
 
+// copyPath returns copy for the given Path object.
+func copyPath(p *Path) *Path {
+	return newPath(p.filepath)
+}
+
 // Join allows to change path in the same way as shell "cd" command do.
 // E.g. if we have path pointed to "/home", and after Join("foo")
 // applying path will points to "/home/foo" folder (or file).
@@ -50,4 +55,9 @@ func (p *Path) Stat() (fi os.FileInfo, err error) {
 // String returns string representation of the Path object.
 func (p *Path) String() string {
 	return p.filepath
+}
+
+// ToOsPath returns physical path to the file (in the target OS terms).
+func ToOsPath(p *Path) string {
+	return path.Join(p.root, p.filepath)
 }
