@@ -13,11 +13,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"path"
 	"strings"
 )
-
-// User's configuration file default location.
-const defaultConfigFile = "~/.chub/config"
 
 // Space characters list.
 const space = " \t\n\v"
@@ -95,9 +94,30 @@ func (m *configurationsMap) VfsRoot() string {
 	return m.stringVal(vfsRoot)
 }
 
+func parseVfsRoot(raw string) (val interface{}, err error) {
+	raw = path.Clean(raw)
+	// Open doesn't understand path started with ~ character,
+	// so make such path absolute.
+	if strings.HasPrefix(raw, "~") {
+		raw = path.Join(getHomeDir(), raw[1:])
+	}
+
+	dir, err := os.Open(raw)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := dir.Stat()
+	if !fi.IsDir() {
+		return nil, fmt.Errorf("Folder expected.")
+	}
+
+	return raw, nil
+}
+
 // parser parses given configuration file and returs map filled with its content.
 func parse(filename string) (conf ConfigurationsMap, err error) {
-	cnf := &configurationsMap{Entries: map[string]entry{}}
+	cnf := &configurationsMap{Entries: map[string]entry{
+		vfsRoot: {Type: typeString, Parse: parseVfsRoot, Value: "/"}}}
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -145,7 +165,7 @@ func parse(filename string) (conf ConfigurationsMap, err error) {
 
 		v, err := opt.Parse(val)
 		if err != nil {
-			e := fmt.Sprintf("Invalid %s value:", val)
+			e := fmt.Sprintf("Invalid value %s: %s", val, err)
 			err = newParserError(e, lineNumber, 0)
 
 			return nil, err
@@ -157,9 +177,20 @@ func parse(filename string) (conf ConfigurationsMap, err error) {
 	return cnf, nil
 }
 
+// getHomeDir returns absolute path to the current user's home directory folder.
+func getHomeDir() string {
+	u, err := user.Current()
+	if err != nil {
+		panic(fmt.Sprintf("Can't retrieve current user information. %s", err))
+	}
+
+	return u.HomeDir
+}
+
 // Module initialization function.
 func init() {
-	conf, err := parse(defaultConfigFile)
+	cf := path.Join(getHomeDir(), ".chub/config")
+	conf, err := parse(cf)
 	if err != nil {
 		panic(fmt.Sprintf("Configuration file test.txt parsing failed. %s\n", err))
 	}
