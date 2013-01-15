@@ -9,6 +9,8 @@ import (
 	"unicode"
 )
 
+var illegalTimeFormatError = errors.New("Illegal time format.")
+
 // parseCommand retrive string line and parses it with the following algorythm:
 // * first word in the line is command name (cmd return value)
 // * all rest words are command's parameters
@@ -52,7 +54,7 @@ func parseCommand(line string) (cmd string, params []string, err error) {
 			} else {
 				if c == '\\' { // Escape sequence in the text.
 					if i+1 >= l {
-						err = fmt.Errorf("Unfinished escape sequence")
+						err = fmt.Errorf("Unfinished escape sequence.")
 						return
 					}
 
@@ -73,7 +75,7 @@ func parseCommand(line string) (cmd string, params []string, err error) {
 			} else {
 				if c == '\\' { // Escape sequence in the text.
 					if i+1 >= l {
-						err = fmt.Errorf("Unfinished escape sequence")
+						err = fmt.Errorf("Unfinished escape sequence.")
 						return
 					}
 
@@ -108,7 +110,7 @@ func parseEscapeSequence(seq string) (char byte, err error) {
 
 	char, ok := m[seq]
 	if !ok {
-		err = fmt.Errorf("Usupported escape sequence '%s'", seq)
+		err = fmt.Errorf("Usupported escape sequence '%s'.", seq)
 	}
 
 	return
@@ -125,33 +127,33 @@ func isQuoteChar(char byte) bool {
 func parseTime(length string) (min int, sec int, frames int, err error) {
 	parts := strings.Split(length, ":")
 	if len(parts) != 3 {
-		err = errors.New("Illegal time format. mm:ss:ff should be.")
+		err = illegalTimeFormatError
 		return
 	}
 
 	min, err = strconv.Atoi(parts[0])
 	if err != nil {
-		err = fmt.Errorf("Failed to parse minutes. %s", err)
+		err = illegalTimeFormatError
 		return
 	}
 
 	sec, err = strconv.Atoi(parts[1])
 	if err != nil {
-		err = fmt.Errorf("Failed to parse seconds. %s", err)
+		err = illegalTimeFormatError
 		return
 	}
 	if sec > 59 {
-		err = errors.New("Failed to parse seconds. Seconds value can't be more than 59.")
+		err = illegalTimeFormatError
 		return
 	}
 
 	frames, err = strconv.Atoi(parts[2])
 	if err != nil {
-		err = fmt.Errorf("Failed to parse frames value. %s", err)
+		err = illegalTimeFormatError
 		return
 	}
 	if frames > 74 {
-		err = errors.New("Failed to parse frames. Frames value can't be more than 74.")
+		err = illegalTimeFormatError
 		return
 	}
 

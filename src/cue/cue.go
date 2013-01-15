@@ -44,7 +44,7 @@ var parsersMap = map[string]commandParserDescriptor{
 func ParseFile(filename string) (sheet *Sheet, err error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to open file. %s", err)
+		return nil, err
 	}
 
 	return Parse(file)
@@ -76,19 +76,19 @@ func Parse(reader io.Reader) (sheet *Sheet, err error) {
 
 		parserDescriptor, ok := parsersMap[cmd]
 		if !ok {
-			return nil, fmt.Errorf("Line %d. Unknown command '%s'", lineNumber, cmd)
+			return nil, fmt.Errorf("Line %d. Unknown command '%s'.", lineNumber, cmd)
 		}
 
 		paramsExpected := parserDescriptor.paramsCount
 		paramsRecieved := len(params)
 		if paramsExpected != -1 && paramsExpected != paramsRecieved {
-			return nil, fmt.Errorf("Line %d. Command %s: recieved %d parameters but %d expected",
-				lineNumber, cmd, paramsRecieved, paramsExpected)
+			return nil, fmt.Errorf("Line %d. Command %s expected %d parameters but %d received.",
+				lineNumber, cmd, paramsExpected, paramsRecieved)
 		}
 
 		err = parserDescriptor.parser(params, sheet)
 		if err != nil {
-			return nil, fmt.Errorf("Line %d. Failed to parse %s command. %s", lineNumber, cmd, err)
+			return nil, fmt.Errorf("Line %d. %s", lineNumber, err)
 		}
 
 		lineNumber++
@@ -101,9 +101,10 @@ func Parse(reader io.Reader) (sheet *Sheet, err error) {
 func parseCatalog(params []string, sheet *Sheet) error {
 	num := params[0]
 
+	// TODO: Optimize regexp.
 	matched, _ := regexp.MatchString("^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$", num)
 	if !matched {
-		return fmt.Errorf("%s is not valid catalog number", params)
+		return fmt.Errorf("%s is not valid catalog number.", params)
 	}
 
 	sheet.Catalog = num
@@ -134,7 +135,7 @@ func parseFile(params []string, sheet *Sheet) error {
 
 		fileType, ok := types[t]
 		if !ok {
-			err = fmt.Errorf("Unknown file type %s", t)
+			err = fmt.Errorf("Unsupported file type %s.", t)
 		}
 
 		return
@@ -166,7 +167,7 @@ func parseFlags(params []string, sheet *Sheet) error {
 
 		trackFlag, ok := flags[flag]
 		if !ok {
-			err = fmt.Errorf("Unknown track flag %s", flag)
+			err = fmt.Errorf("Unsupported track flag %s.", flag)
 		}
 
 		return
@@ -174,7 +175,7 @@ func parseFlags(params []string, sheet *Sheet) error {
 
 	track := getCurrentTrack(sheet)
 	if track == nil {
-		return errors.New("TRACK command should appears before FLAGS command")
+		return errors.New("TRACK command should appears before FLAGS command.")
 	}
 
 	for _, flagStr := range params {
@@ -192,28 +193,28 @@ func parseFlags(params []string, sheet *Sheet) error {
 func parseIndex(params []string, sheet *Sheet) error {
 	min, sec, frames, err := parseTime(params[1])
 	if err != nil {
-		return fmt.Errorf("Failed to parse index start time. %s", err)
+		return err
 	}
 
 	number, err := strconv.Atoi(params[0])
 	if err != nil {
-		return fmt.Errorf("Failed to parse index number. %s", err)
+		return err
 	}
 
 	// All index numbers must be between 0 and 99 inclusive.
 	if number < 0 || number > 99 {
-		return errors.New("Index number should be in 0..99 interval")
+		return errors.New("Invalid index number value.")
 	}
 
 	track := getCurrentTrack(sheet)
 	if track == nil {
-		return fmt.Errorf("TRACK command should appears before INDEX command")
+		return fmt.Errorf("TRACK command expected.")
 	}
 
 	// The first index of a file must start at 00:00:00.
 	if getFileLastIndex(getCurrentFile(sheet)) == nil {
 		if min+sec+frames != 0 {
-			return errors.New("First track index must start at 00:00:00")
+			return errors.New("00:00:00 time value expected.")
 		}
 	}
 
@@ -221,13 +222,13 @@ func parseIndex(params []string, sheet *Sheet) error {
 	if len(track.Indexes) == 0 {
 		// The first index must be 0 or 1.
 		if number >= 2 {
-			return errors.New("First track index should has 0 or 1 inxed number")
+			return errors.New("0 or 1 index number expected.")
 		}
 	} else {
 		// All other indexes being sequential to the first one.
 		numberExpected := track.Indexes[len(track.Indexes)-1].Number + 1
 		if numberExpected != number {
-			return fmt.Errorf("Expected %d index number but %d recieved", numberExpected, number)
+			return fmt.Errorf("%d index number expected.", numberExpected)
 		}
 	}
 
@@ -243,18 +244,19 @@ func parseIsrc(params []string, sheet *Sheet) error {
 
 	track := getCurrentTrack(sheet)
 	if track == nil {
-		return errors.New("TRACK command should appears before ISRC command")
+		return errors.New("TRACK command expected.")
 	}
 
 	if len(track.Indexes) != 0 {
-		return errors.New("ISRC command must be specified before INDEX command")
+		return errors.New("ISRC command expected.")
 	}
 
+	// TODO: Shame on you for this regexp.
 	re := "^[0-9a-zA-z][0-9a-zA-z][0-9a-zA-z][0-9a-zA-z][0-9a-zA-z]" +
 		"[0-9][0-9][0-9][0-9][0-9][0-9][0-9]$"
 	matched, _ := regexp.MatchString(re, isrc)
 	if !matched {
-		return fmt.Errorf("%s is not valid ISRC number", isrc)
+		return fmt.Errorf("%s is not valid ISRC number.", isrc)
 	}
 
 	track.Isrc = isrc
@@ -283,12 +285,12 @@ func parsePerformer(params []string, sheet *Sheet) error {
 func parsePostgap(params []string, sheet *Sheet) error {
 	track := getCurrentTrack(sheet)
 	if track == nil {
-		return errors.New("POSTGAP command must appear after a TRACK command")
+		return errors.New("TRACK command expected.")
 	}
 
 	min, sec, frames, err := parseTime(params[0])
 	if err != nil {
-		return fmt.Errorf("Failed to parse postgap time. %s", err)
+		return err
 	}
 
 	track.Postgap = Time{min, sec, frames}
@@ -300,16 +302,16 @@ func parsePostgap(params []string, sheet *Sheet) error {
 func parsePregap(params []string, sheet *Sheet) error {
 	track := getCurrentTrack(sheet)
 	if track == nil {
-		return errors.New("PREGAP command must appear after a TRACK command")
+		return errors.New("TRACK command expected.")
 	}
 
 	if len(track.Indexes) != 0 {
-		return errors.New("PREGAP command must appear before any INDEX command")
+		return errors.New("Unexpected PREGAP command.")
 	}
 
 	min, sec, frames, err := parseTime(params[0])
 	if err != nil {
-		return fmt.Errorf("Failed to parse pregap time. %s", err)
+		return err
 	}
 
 	track.Pregap = Time{min, sec, frames}
@@ -360,7 +362,7 @@ func parseTitle(params []string, sheet *Sheet) error {
 func parseTrack(params []string, sheet *Sheet) error {
 	// TRACK command should be after FILE command.
 	if len(sheet.Files) == 0 {
-		return fmt.Errorf("Unexpected TRACK command. FILE command expected first.")
+		return fmt.Errorf("Unexpected TRACK command.")
 	}
 
 	numberStr := params[0]
@@ -381,7 +383,7 @@ func parseTrack(params []string, sheet *Sheet) error {
 
 		dataType, ok := types[t]
 		if !ok {
-			err = fmt.Errorf("Unknown track datatype %s", t)
+			err = fmt.Errorf("Unsupported track datatype %s.", t)
 		}
 
 		return
@@ -389,10 +391,10 @@ func parseTrack(params []string, sheet *Sheet) error {
 
 	number, err := strconv.Atoi(numberStr)
 	if err != nil {
-		return fmt.Errorf("Failed to parse track number parameter. %s", err)
+		return err
 	}
 	if number < 1 {
-		return fmt.Errorf("Failed to parse track number parameter. Value should be in 1..99 range.")
+		return fmt.Errorf("Bad track number value.")
 	}
 
 	dataType, err := parseDataType(dataTypeStr)
@@ -409,7 +411,7 @@ func parseTrack(params []string, sheet *Sheet) error {
 	// But all track numbers after the first must be sequential.
 	if len(file.Tracks) > 0 {
 		if file.Tracks[len(file.Tracks)-1].Number != number-1 {
-			return fmt.Errorf("Expected track number %d, but %d recieved.",
+			return fmt.Errorf("Expected track number %d, but %d received.",
 				number-1, number)
 		}
 	}
