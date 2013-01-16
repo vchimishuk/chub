@@ -36,9 +36,9 @@ func (fs *Vfs) Cd(dir string) error {
 	newWd.Join([]string{dir}...)
 	fi, err := newWd.Stat()
 	if err != nil {
-		return fmt.Errorf("Can't change directory. File or directory '%s' does not exist.", newWd.String())
+		return fmt.Errorf("File or directory '%s' does not exist.", newWd.String())
 	} else if !fi.IsDir() {
-		return fmt.Errorf("Can't change directory. '%s' is not a directory.", newWd.String())
+		return fmt.Errorf("'%s' is not a directory.", newWd.String())
 	}
 
 	fs.wd = &newWd
