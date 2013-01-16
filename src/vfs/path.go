@@ -6,10 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
-)
-
-const (
-	ROOT = "/home" // TODO: This value should be taken form configurations.
+	"../config"
 )
 
 // Path type is a Virtual File System path representation.
@@ -22,7 +19,7 @@ type Path struct {
 
 // newPath function returns new Path object.
 func newPath(p string) *Path {
-	return &Path{root: ROOT, filepath: p}
+	return &Path{root: config.Configurations.VfsRoot(), filepath: p}
 }
 
 // copyPath returns copy for the given Path object.
