@@ -49,12 +49,17 @@ func (p *Path) Stat() (fi os.FileInfo, err error) {
 	return os.Stat(path.Join(p.root, p.filepath))
 }
 
+// Open opens underlying filepath for reading.
+func (p* Path) Open() (file *os.File, err error) {
+	return os.Open(path.Join(p.root, p.filepath))
+}
+
 // String returns string representation of the Path object.
 func (p *Path) String() string {
 	return p.filepath
 }
 
-// ToOsPath returns physical path to the file (in the target OS terms).
-func ToOsPath(p *Path) string {
-	return path.Join(p.root, p.filepath)
-}
+// // ToOsPath returns physical path to the file (in the target OS terms).
+// func ToOsPath(p *Path) string {
+// 	return path.Join(p.root, p.filepath)
+// }

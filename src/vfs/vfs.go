@@ -69,7 +69,7 @@ func (fs *Vfs) List() (entries []interface{}, err error) {
 	// Result entries list is formed from selected directories list
 	// and selected tracks list appended.
 
-	wd, err := os.Open(ToOsPath(fs.wd))
+	wd, err := fs.wd.Open()
 	if err != nil {
 		return nil, err
 	}
