@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 )
 
 // Virtual File System structure.
@@ -51,52 +52,92 @@ func (fs *Vfs) Cd(dir string) error {
 // alphabetic order sorted directories come first,
 // alphabetic sorted files comes after directories list.
 func (fs *Vfs) List() (entries []interface{}, err error) {
-	// TODO: Directory listing alghorythm here is not optimal and I promice
-	//       improve it in the future.
+	// TODO: Directory listing alghorythm here is not optimal
+	//       and I promice improve it in the future.
 
-	baseDir := ToOsPath(fs.wd)
-	dir, err := os.Open(baseDir)
+	// Listing algorythm works in the next simple way. Current folder
+	// scans three times:
+	// 1. On the first iteration only directories are selected and
+	//    collected into directories list.
+	// 2. With second one only cue files are selected and parsed.
+	//    Result stored in traks list.
+	// 3. With last iteration all other supported audio files are selected
+	//    and appended to the traks lis. But audio files which were added
+	//    with step number are ignored, becuase they were processed from
+	//    cue files parsing step and we don't need them appear second
+	//    time in list.
+	// Result entries list is formed from selected directories list
+	// and selected tracks list appended.
+
+	wd, err := os.Open(ToOsPath(fs.wd))
 	if err != nil {
 		return nil, err
 	}
-	defer dir.Close()
+	defer wd.Close()
 
+	dirs, err := fs.readDirs(wd)
+	if err != nil {
+		return nil, err
+	}
+	tracks, err := fs.readTracks(wd)
+	if err != nil {
+		return nil, err
+	}
+
+	entries = make([]interface{}, 0, len(dirs)+len(tracks))
+	for _, dir := range dirs {
+		entries = append(entries, dir)
+	}
+	for _, track := range tracks {
+		entries = append(entries, track)
+	}
+
+	return entries, nil
+}
+
+// readDirs returns sorted list of all directories for the given file object.
+// Parameter is garanteed to be a folder.
+func (fs *Vfs) readDirs(dir *os.File) (dirs []*Directory, err error) {
 	names, err := dir.Readdirnames(-1)
 	if err != nil {
 		return nil, err
 	}
 
-	dirEntries := make(directorySlice, 0, len(names))
-	fileEntries := make([]*Track, 0, len(names))
+	sort.Strings(names)
+
+	dirs = make([]*Directory, 0, len(names))
 
 	for _, name := range names {
-		filename := path.Join(baseDir, name)
-		fi, err := os.Stat(filename)
-		if err != nil {
-			return nil, err
-		}
-
-		if fi.IsDir() {
+		fi, err := os.Stat(path.Join(dir.Name(), name))
+		if err == nil && fi.IsDir() {
 			p := copyPath(fs.wd)
 			p.Join(name)
-			dir := &Directory{Path: p, Name: name}
-			dirEntries = append(dirEntries, dir)
-		} else if false {
-			// TODO:
-		} else {
-			// Unsupported entry type.
+			d := &Directory{Path: p, Name: name}
+			dirs = append(dirs, d)
 		}
 	}
 
-	dirEntries.Sort()
+	return dirs, nil
+}
 
-	entries = make([]interface{}, 0, len(dirEntries)+len(fileEntries))
-	for _, dir := range dirEntries {
-		entries = append(entries, dir)
-	}
-	for _, file := range fileEntries {
-		entries = append(entries, file)
+// readTracks returns sorted tracks list in the given directory.
+// Parameter is garanteed to be a folder.
+func (fs *Vfs) readTracks(dir *os.File) (tracks []*Track, err error) {
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return nil, err
 	}
 
-	return entries, nil
+	sort.Strings(names)
+
+	tracks = make([]*Track, 0, len(names))
+
+	for _, name := range names {
+		fi, err := os.Stat(path.Join(dir.Name(), name))
+		if err == nil && !fi.IsDir() {
+			// TODO:
+		}
+	}
+
+	return tracks, nil
 }
