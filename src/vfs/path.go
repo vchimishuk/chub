@@ -3,10 +3,10 @@
 package vfs
 
 import (
+	"../config"
 	"os"
 	"path"
 	"strings"
-	"../config"
 )
 
 // Path type is a Virtual File System path representation.
@@ -50,7 +50,7 @@ func (p *Path) Stat() (fi os.FileInfo, err error) {
 }
 
 // Open opens underlying filepath for reading.
-func (p* Path) Open() (file *os.File, err error) {
+func (p *Path) Open() (file *os.File, err error) {
 	return os.Open(path.Join(p.root, p.filepath))
 }
 
@@ -59,7 +59,12 @@ func (p *Path) String() string {
 	return p.filepath
 }
 
-// // ToOsPath returns physical path to the file (in the target OS terms).
-// func ToOsPath(p *Path) string {
-// 	return path.Join(p.root, p.filepath)
-// }
+// Ext returns path's extension part.
+func (p *Path) Ext() string {
+	return path.Ext(p.filepath)
+}
+
+// OsPath returns physical path to the file (in the target OS terms).
+func (p *Path) OsPath() string {
+	return path.Join(p.root, p.filepath)
+}
