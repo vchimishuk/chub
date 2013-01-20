@@ -20,9 +20,9 @@ type Tag struct {
 	// Track's title.
 	Title string
 	// Track number.
-	Number string
-	// Track length
-	Length string
+	Number int
+	// Track length in seconds.
+	Length int
 }
 
 // Track is a filesystem entry structure representing track.

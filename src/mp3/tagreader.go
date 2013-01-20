@@ -21,7 +21,7 @@ func (tr *TagReader) Parse(file *vfs.Path) (tag *vfs.Tag, err error) {
 	tag.Artist = id3Tag.Artist()
 	tag.Album = id3Tag.Album()
 	tag.Title = id3Tag.Title()
-	tag.Length = "0:00"
+	tag.Length = 0
 
 	return tag, nil
 }

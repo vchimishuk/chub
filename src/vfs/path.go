@@ -72,5 +72,10 @@ func (p *Path) OsPath() string {
 // ExtMatch returns true if underlying filename matches given extension.
 // ext parameter should be in lower case.
 func (p *Path) ExtMatch(ext string) bool {
-	return ext == strings.ToLower(path.Ext(p.filepath))
+	myExt := strings.ToLower(path.Ext(p.filepath))
+	if len(myExt) > 1 {
+		myExt = myExt[1:]
+	}
+
+	return ext == myExt
 }

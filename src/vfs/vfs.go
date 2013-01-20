@@ -3,6 +3,7 @@
 package vfs
 
 import (
+	"../cue"
 	"fmt"
 	"os"
 	"path"
@@ -140,7 +141,12 @@ func (fs *Vfs) readTracks(dir *Path) (tracks []*Track, err error) {
 
 	sort.Strings(names)
 
+	// Process CUE files first and then only audio files which was not
+	// found inside CUE ones. 
+
 	tracks = make([]*Track, 0, len(names))
+	audioFilenames := make([]string, 0, len(names))
+	ignoredAudioFilenames := make([]string, 0, len(names))
 
 	for _, name := range names {
 		fi, err := os.Stat(path.Join(dir.OsPath(), name))
@@ -149,32 +155,92 @@ func (fs *Vfs) readTracks(dir *Path) (tracks []*Track, err error) {
 			file.Join(name)
 
 			if file.ExtMatch(cueExtension) {
-				// TODO:
-			} else {
-				tagReader := NewTagReader(file)
-				if tagReader == nil {
-					// Unsupported filetype.
-					continue
-				}
-				tag, err := tagReader.Parse(file)
+				sheet, err := cue.ParseFile(file.OsPath())
 				if err != nil {
-					// TODO: Don't ignore files with bad tags,
-					//       instead somehow fill tag with
-					//       filename information.
 					continue
 				}
+				tracks = append(tracks, fs.parseCueSheet(sheet)...)
 
-				track := new(Track)
-				track.Path = file
-				track.Tag = tag
-				track.Part = false
-				track.Start = 0
-				track.End = 0
-
-				tracks = append(tracks, track)
+				for _, f := range sheet.Files {
+					ignoredAudioFilenames = append(
+						ignoredAudioFilenames, f.Name)
+				}
+			} else {
+				audioFilenames = append(audioFilenames, name)
 			}
 		}
 	}
 
+	// Now process non-cue audio files.
+	sort.Strings(ignoredAudioFilenames)
+	l := len(ignoredAudioFilenames)
+
+	for _, filename := range audioFilenames {
+		i := sort.SearchStrings(ignoredAudioFilenames, filename)
+		if i < l && ignoredAudioFilenames[i] == filename {
+			continue
+		}
+
+		file := newPath(dir.String())
+		file.Join(filename)
+
+		tagReader := NewTagReader(file)
+		if tagReader == nil {
+			// Unsupported filetype.
+			continue
+		}
+		tag, err := tagReader.Parse(file)
+		if err != nil {
+			// TODO: Don't ignore files with bad tags,
+			//       instead somehow fill tag with
+			//       filename information.
+			continue
+		}
+
+		track := new(Track)
+		track.Path = file
+		track.Tag = tag
+		track.Part = false
+		track.Start = 0
+		track.End = 0
+
+		tracks = append(tracks, track)
+	}
+
 	return tracks, nil
+}
+
+// parseCueSheet returns tracks from the given CUE Sheet.
+func (fs *Vfs) parseCueSheet(sheet *cue.Sheet) []*Track {
+	tracks := make([]*Track, 0, len(sheet.Files))
+
+	for _, file := range sheet.Files {
+		p := copyPath(fs.wd)
+		p.Join(file.Name)
+
+		for _, track := range file.Tracks {
+			tag := new(Tag)
+			if len(track.Performer) > 0 {
+				tag.Artist = track.Performer
+			} else {
+				tag.Artist = sheet.Performer
+			}
+			tag.Album = sheet.Title
+			tag.Title = track.Title
+			tag.Number = track.Number
+			tag.Length = 0
+
+			t := new(Track)
+			t.Path = p
+			t.Tag = tag
+			t.Part = true
+			t.Start = 0
+			t.End = 0
+
+			tracks = append(tracks, t)
+		}
+
+	}
+
+	return tracks
 }
