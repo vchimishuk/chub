@@ -2,7 +2,6 @@
 package mp3
 
 import (
-	"../audio"
 	"../vfs"
 	"./id3tag"
 	"strings"
@@ -12,13 +11,13 @@ import (
 type TagReader struct {
 }
 
-func (tr *TagReader) Parse(file *vfs.Path) (tag *audio.Tag, err error) {
+func (tr *TagReader) Parse(file *vfs.Path) (tag *vfs.Tag, err error) {
 	id3Tag, err := id3tag.Parse(file.OsPath())
 	if err != nil {
 		return nil, err
 	}
 
-	tag = new(audio.Tag)
+	tag = new(vfs.Tag)
 	tag.Artist = id3Tag.Artist()
 	tag.Album = id3Tag.Album()
 	tag.Title = id3Tag.Title()
@@ -37,7 +36,7 @@ func (factory *TagReaderFactory) Match(file *vfs.Path) bool {
 	return ext == ".mp3"
 }
 
-func (factory *TagReaderFactory) TagReader() audio.TagReader {
+func (factory *TagReaderFactory) TagReader() vfs.TagReader {
 	return new(TagReader)
 }
 
@@ -49,5 +48,5 @@ func Init() {
 
 // Register this implementation.
 func init() {
-	audio.RegisterTagReaderFactory(new(TagReaderFactory))
+	vfs.RegisterTagReaderFactory(new(TagReaderFactory))
 }

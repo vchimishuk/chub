@@ -9,6 +9,8 @@ import (
 	"sort"
 )
 
+const cueExtension = "cue"
+
 // Virtual File System structure.
 type Vfs struct {
 	// Path to the current working directory.
@@ -75,11 +77,11 @@ func (fs *Vfs) List() (entries []interface{}, err error) {
 	}
 	defer wd.Close()
 
-	dirs, err := fs.readDirs(wd)
+	dirs, err := fs.readDirs(fs.wd)
 	if err != nil {
 		return nil, err
 	}
-	tracks, err := fs.readTracks(wd)
+	tracks, err := fs.readTracks(fs.wd)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +99,12 @@ func (fs *Vfs) List() (entries []interface{}, err error) {
 
 // readDirs returns sorted list of all directories for the given file object.
 // Parameter is garanteed to be a folder.
-func (fs *Vfs) readDirs(dir *os.File) (dirs []*Directory, err error) {
-	names, err := dir.Readdirnames(-1)
+func (fs *Vfs) readDirs(dir *Path) (dirs []*Directory, err error) {
+	file, err := dir.Open()
+	if err != nil {
+		return nil, err
+	}
+	names, err := file.Readdirnames(-1)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +114,7 @@ func (fs *Vfs) readDirs(dir *os.File) (dirs []*Directory, err error) {
 	dirs = make([]*Directory, 0, len(names))
 
 	for _, name := range names {
-		fi, err := os.Stat(path.Join(dir.Name(), name))
+		fi, err := os.Stat(path.Join(dir.OsPath(), name))
 		if err == nil && fi.IsDir() {
 			p := copyPath(fs.wd)
 			p.Join(name)
@@ -122,8 +128,12 @@ func (fs *Vfs) readDirs(dir *os.File) (dirs []*Directory, err error) {
 
 // readTracks returns sorted tracks list in the given directory.
 // Parameter is garanteed to be a folder.
-func (fs *Vfs) readTracks(dir *os.File) (tracks []*Track, err error) {
-	names, err := dir.Readdirnames(-1)
+func (fs *Vfs) readTracks(dir *Path) (tracks []*Track, err error) {
+	file, err := dir.Open()
+	if err != nil {
+		return nil, err
+	}
+	names, err := file.Readdirnames(-1)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +143,36 @@ func (fs *Vfs) readTracks(dir *os.File) (tracks []*Track, err error) {
 	tracks = make([]*Track, 0, len(names))
 
 	for _, name := range names {
-		fi, err := os.Stat(path.Join(dir.Name(), name))
+		fi, err := os.Stat(path.Join(dir.OsPath(), name))
 		if err == nil && !fi.IsDir() {
-			// TODO:
+			file := newPath(dir.String())
+			file.Join(name)
+
+			if file.ExtMatch(cueExtension) {
+				// TODO:
+			} else {
+				tagReader := NewTagReader(file)
+				if tagReader == nil {
+					// Unsupported filetype.
+					continue
+				}
+				tag, err := tagReader.Parse(file)
+				if err != nil {
+					// TODO: Don't ignore files with bad tags,
+					//       instead somehow fill tag with
+					//       filename information.
+					continue
+				}
+
+				track := new(Track)
+				track.Path = file
+				track.Tag = tag
+				track.Part = false
+				track.Start = 0
+				track.End = 0
+
+				tracks = append(tracks, track)
+			}
 		}
 	}
 

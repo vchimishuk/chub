@@ -68,3 +68,9 @@ func (p *Path) Ext() string {
 func (p *Path) OsPath() string {
 	return path.Join(p.root, p.filepath)
 }
+
+// ExtMatch returns true if underlying filename matches given extension.
+// ext parameter should be in lower case.
+func (p *Path) ExtMatch(ext string) bool {
+	return ext == strings.ToLower(path.Ext(p.filepath))
+}
