@@ -4,9 +4,9 @@ import "C"
 
 // Popular user comment names.
 const (
-	CommentArtist = "ARTIST"
-	CommentAlbum = "ALBUM"
-	CommentTitle = "TITLE"
+	CommentArtist      = "ARTIST"
+	CommentAlbum       = "ALBUM"
+	CommentTitle       = "TITLE"
 	CommentTrackNumber = "TRACKNUMBER"
 )
 

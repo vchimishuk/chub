@@ -2,10 +2,10 @@
 package ogg
 
 import (
-	"strings"
-	"strconv"
 	"../vfs"
 	"./libvorbis"
+	"strconv"
+	"strings"
 )
 
 // Ogg TagReader implementation.

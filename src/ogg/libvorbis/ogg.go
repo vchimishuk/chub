@@ -19,7 +19,7 @@ import (
 
 const (
 	LittleEndian = 0
-	BigEndian = 1
+	BigEndian    = 1
 )
 
 // The File structure defines an Ogg Vorbis file. 
@@ -101,7 +101,7 @@ func (file *File) Read(buf []byte) int {
 		return 0
 	}
 
-	var signed int 
+	var signed int
 	if file.Signed {
 		signed = 1
 	} else {
@@ -114,7 +114,7 @@ func (file *File) Read(buf []byte) int {
 		_Ctype_int(file.Endianness),
 		_Ctype_int(file.WordSize),
 		_Ctype_int(signed))
- 
+
 	return int(read)
 }
 
