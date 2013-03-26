@@ -19,5 +19,6 @@ func TestPackage(t *testing.T) {
 		t.Fatalf("Failed to parse file. %s", err)
 	}
 
+	assertString(t, outputName, "alsa", conf.OutputName())
 	assertString(t, vfsRoot, getHomeDir(), conf.VfsRoot())
 }
