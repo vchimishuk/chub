@@ -124,9 +124,9 @@ func (player *Player) cmdPlaylistsDelete(name string) error {
 
 	for e := player.playlists.Front(); e != nil; e = e.Next() {
 		playlist := e.Value.(*Playlist)
-	 	if playlist.system {
-	 		return fmt.Errorf("System playlist can't be deleted")
-	 	}
+		if playlist.system {
+			return fmt.Errorf("System playlist can't be deleted")
+		}
 		if e.Value.(*Playlist).Name == name {
 			player.playlists.Remove(e)
 			break
