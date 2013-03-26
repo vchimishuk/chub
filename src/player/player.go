@@ -5,6 +5,7 @@ import (
 	"../audio"
 	"container/list"
 	"fmt"
+	"./playlist"
 )
 
 // Playing process communication command response.
@@ -29,7 +30,7 @@ type Player struct {
 	// All available audio decoders.
 	decoders []audio.Decoder
 	// All (user and system) playlists list.
-	playlists *list.List
+	playlists []*playlist.Playlist
 	// Channel to communicate player with. Client code can
 	// write commands and read responses to/from the channel.
 	playingChan chan *command
@@ -38,7 +39,7 @@ type Player struct {
 // New returns a newly created Player object.
 func New() *Player {
 	p := new(Player)
-	p.playlists = list.New()
+	p.playlists = make([]*playlist.Playlist, 0)
 	p.playingChan = make(chan *command, 10)
 
 	return p
@@ -85,6 +86,8 @@ func (player *Player) playingProcess() {
 			player.cmdPlaylistsAdd(cmd.arguments[0].(string))
 		case CMD_PLAYLISTS_DELETE:
 			r.err = player.cmdPlaylistsDelete(cmd.arguments[0].(string))
+		case CMD_PLAYLIST_ADD:
+			r.err = player.cmdPlaylistAdd()
 		default:
 			r.err = fmt.Errorf("Unsupported command %s.", cmd.code)
 		}
@@ -94,16 +97,8 @@ func (player *Player) playingProcess() {
 }
 
 // Returns playlists list.
-func (player *Player) cmdPlaylistsList() []*Playlist {
-	playlists := make([]*Playlist, player.playlists.Len())
-
-	i := 0
-	for e := player.playlists.Front(); e != nil; e = e.Next() {
-		playlists[i] = e.Value.(*Playlist)
-		i++
-	}
-
-	return playlists
+func (player *Player) cmdPlaylistsList() []*playlist.Playlist {
+	return player.playlists
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
@@ -113,7 +108,7 @@ func (player *Player) cmdPlaylistsAdd(name string) error {
 		return fmt.Errorf("Playlist %s already exists.", name)
 	}
 
-	player.playlists.PushBack(newPlaylist(name))
+	player.playlists = append(player.playlists, newPlaylist(name))
 
 	return nil
 }
@@ -122,13 +117,15 @@ func (player *Player) cmdPlaylistsAdd(name string) error {
 func (player *Player) cmdPlaylistsDelete(name string) error {
 	// TODO: Stop playing if playing current playlist.
 
-	for e := player.playlists.Front(); e != nil; e = e.Next() {
-		playlist := e.Value.(*Playlist)
-		if playlist.system {
-			return fmt.Errorf("System playlist can't be deleted")
-		}
-		if e.Value.(*Playlist).Name == name {
-			player.playlists.Remove(e)
+
+	for i, playlist := range player.playlists {
+		if playlist.Name() == name {
+			if playlist.System() {
+				return fmt.Errorf("System playlist can't be deleted")
+			}
+
+			player.playlists = append(player.playlists[:i],
+				player.playlists[i+1:])
 			break
 		}
 	}
@@ -138,12 +135,10 @@ func (player *Player) cmdPlaylistsDelete(name string) error {
 
 // getPlaylistByName returns playlist for given name
 // or nil if there is no such playlist exists.
-func (player *Player) getPlaylistByName(name string) *Playlist {
-	for e := player.playlists.Front(); e != nil; e = e.Next() {
-		playlist := e.Value.(*Playlist)
-
-		if playlist.Name == name {
-			return playlist
+func (player *Player) getPlaylistByName(name string) *playlist.Playlist {
+	for _, pl := range player.playlists {
+		if pl.Name() == name {
+			return pl
 		}
 	}
 
