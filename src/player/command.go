@@ -3,20 +3,22 @@ package player
 
 // Available Player command code constants.
 const (
-	// Returns list of all loaded playlists.
-	CMD_PLAYLISTS_LIST int = iota
+	// Pause/Unpase playback.
+	CommandPause int = iota
+	// Start playing.
+	CommandPlay
+	// Stop playing process.
+	CommandStop
+
+	// Returns list with all playlists in the system.
+	CommandPlaylistsList
+
 	// Creates new playlist.
-	CMD_PLAYLISTS_ADD
+	CommandPlaylistAdd
 	// Removes particular playlist.
-	CMD_PLAYLISTS_DELETE
-	// Returns specified playlist tracks.
-	CMD_PLAYLIST_LIST
-	// Append track to the playlist.
-	CMD_PLAYLIST_ADD
-	// Starts playing track.
-	CMD_PLAY
-	// Pauses or resumes playing if any.
-	CMD_PAUSE
-	// Stops playing if any.
-	CMD_STOP
+	CommandPlaylistDelete
+	// Returns playlist information.
+	CommandPlaylistInfo
+	// Set new name to the playlis.
+	CommandPlaylistRename
 )

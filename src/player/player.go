@@ -64,14 +64,14 @@ func (player *Player) playingProcess() {
 		r := new(response)
 
 		switch cmd.code {
-		case CMD_PLAYLISTS_LIST:
-			r.arguments = player.cmdPlaylistsList()
-		case CMD_PLAYLISTS_ADD:
-			player.cmdPlaylistsAdd(cmd.arguments[0].(string))
-		case CMD_PLAYLISTS_DELETE:
-			r.err = player.cmdPlaylistsDelete(cmd.arguments[0].(string))
-		case CMD_PLAYLIST_ADD:
-			// r.err = player.cmdPlaylistAdd()
+		case CommandPlaylistsList:
+			r.arguments = player.commandPlaylistsList()
+		case CommandPlaylistAdd:
+			player.commandPlaylistAdd(cmd.arguments[0].(string))
+		case CommandPlaylistDelete:
+			r.err = player.commandPlaylistDelete(cmd.arguments[0].(string))
+		// case CMD_PLAYLIST_ADD:
+		//	r.err = player.cmdPlaylistAdd()
 		default:
 			r.err = fmt.Errorf("Unsupported command %s.", cmd.code)
 		}
@@ -81,14 +81,14 @@ func (player *Player) playingProcess() {
 }
 
 // Returns playlists list.
-func (player *Player) cmdPlaylistsList() []*playlist.Playlist {
+func (player *Player) commandPlaylistsList() []*playlist.Playlist {
 	return player.playlists
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
 // so if playlist with given name exists error will be returned. 
-func (player *Player) cmdPlaylistsAdd(name string) error {
-	if player.getPlaylistByName(name) != nil {
+func (player *Player) commandPlaylistAdd(name string) error {
+	if player.playlistByName(name) != nil {
 		return fmt.Errorf("Playlist %s already exists.", name)
 	}
 
@@ -98,7 +98,7 @@ func (player *Player) cmdPlaylistsAdd(name string) error {
 }
 
 // Deletes existing playlist by name.
-func (player *Player) cmdPlaylistsDelete(name string) error {
+func (player *Player) commandPlaylistDelete(name string) error {
 	// TODO: Stop playing if playing current playlist.
 
 	for i, playlist := range player.playlists {
@@ -116,9 +116,9 @@ func (player *Player) cmdPlaylistsDelete(name string) error {
 	return nil
 }
 
-// getPlaylistByName returns playlist for given name
+// playlistByName returns playlist for given name
 // or nil if there is no such playlist exists.
-func (player *Player) getPlaylistByName(name string) *playlist.Playlist {
+func (player *Player) playlistByName(name string) *playlist.Playlist {
 	for _, pl := range player.playlists {
 		if pl.Name() == name {
 			return pl
