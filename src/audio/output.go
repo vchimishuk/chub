@@ -2,8 +2,8 @@
 package audio
 
 import (
-	"fmt"
 	"../config"
+	"fmt"
 )
 
 // Output interface represents audio autput interface (ALSA, OSS, ...).
@@ -36,7 +36,7 @@ type OutputFactory interface {
 }
 
 // List of output factories.
-var outputFactories map[string] OutputFactory = make(map[string] OutputFactory)
+var outputFactories map[string]OutputFactory = make(map[string]OutputFactory)
 
 // RegisterOutputFactory registers new output factory.
 func RegisterOutputFactory(name string, factory OutputFactory) {
