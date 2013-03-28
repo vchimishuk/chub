@@ -31,7 +31,8 @@ const (
 
 // Available configuration option names.
 const (
-	vfsRoot = "vfs.root"
+	outputName = "output.name"
+	vfsRoot    = "vfs.root"
 )
 
 // Configuration is a collection of configuration parameters from parsed file.
@@ -58,6 +59,9 @@ func (e *parserErorr) Error() string {
 // ConfigurationsMap interface provides methods for reading configuration
 // parameters.
 type ConfigurationsMap interface {
+	// OutputName returns default output name which should be used for
+	// playback.
+	OutputName() string
 	// VfsRoot returns root folder for VFS, where application is chrooted
 	// and can use FS upper this folder.
 	VfsRoot() string
@@ -90,8 +94,20 @@ func (m *configurationsMap) boolVal(name string) bool {
 	return m.Entries[name].Value.(bool)
 }
 
+func (m *configurationsMap) OutputName() string {
+	return m.stringVal(outputName)
+}
+
 func (m *configurationsMap) VfsRoot() string {
 	return m.stringVal(vfsRoot)
+}
+
+func parseOutputName(raw string) (val interface{}, err error) {
+	if raw != "alsa" {
+		return nil, fmt.Errorf("Unsupported output %s.", raw)
+	}
+
+	return raw, nil
 }
 
 func parseVfsRoot(raw string) (val interface{}, err error) {
@@ -117,7 +133,8 @@ func parseVfsRoot(raw string) (val interface{}, err error) {
 // parser parses given configuration file and returs map filled with its content.
 func parse(filename string) (conf ConfigurationsMap, err error) {
 	cnf := &configurationsMap{Entries: map[string]entry{
-		vfsRoot: {Type: typeString, Parse: parseVfsRoot, Value: "/"}}}
+		outputName: {Type: typeString, Parse: parseOutputName, Value: "alsa"},
+		vfsRoot:    {Type: typeString, Parse: parseVfsRoot, Value: "/"}}}
 
 	file, err := os.Open(filename)
 	if err != nil {
