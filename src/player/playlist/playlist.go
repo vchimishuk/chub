@@ -2,7 +2,7 @@
 package playlist
 
 import (
-	errors
+	"errors"
 )
 
 // Playlist structure.
@@ -12,8 +12,8 @@ type Playlist struct {
 }
 
 // Returns new playlist.
-func newPlaylist(name string) *Playlist {
-	return &Playlist{Name: name}
+func New(name string) *Playlist {
+	return &Playlist{name: name}
 }
 
 // System returns true if the playlist is system.
@@ -23,7 +23,7 @@ func newPlaylist(name string) *Playlist {
 func (pl *Playlist) System() bool {
 	l := len(pl.name)
 
-	return l >= 2 && pl.name[0] == '*' && pl.name[l - 1] == '*'
+	return l >= 2 && pl.name[0] == '*' && pl.name[l-1] == '*'
 }
 
 // Name returns name of the playlist.
@@ -38,6 +38,8 @@ func (pl *Playlist) Rename(name string) error {
 	}
 
 	pl.name = name
+
+	return nil
 }
 
 // Len returns number of tracks in the playlist.

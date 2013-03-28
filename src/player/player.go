@@ -2,10 +2,8 @@
 package player
 
 import (
-	"../audio"
-	"container/list"
-	"fmt"
 	"./playlist"
+	"fmt"
 )
 
 // Playing process communication command response.
@@ -25,10 +23,6 @@ type command struct {
 
 // Player engine object.
 type Player struct {
-	// All available output drivers.
-	outputs []audio.Output
-	// All available audio decoders.
-	decoders []audio.Decoder
 	// All (user and system) playlists list.
 	playlists []*playlist.Playlist
 	// Channel to communicate player with. Client code can
@@ -43,16 +37,6 @@ func New() *Player {
 	p.playingChan = make(chan *command, 10)
 
 	return p
-}
-
-// Register new available output driver.
-func (player *Player) RegisterOutput(o audio.Output) {
-	player.outputs = append(player.outputs, o)
-}
-
-// Register new audio decoder driver.
-func (player *Player) RegisterDecoder(d audio.Decoder) {
-	player.decoders = append(player.decoders, d)
 }
 
 // Run starts Player execution.
@@ -87,7 +71,7 @@ func (player *Player) playingProcess() {
 		case CMD_PLAYLISTS_DELETE:
 			r.err = player.cmdPlaylistsDelete(cmd.arguments[0].(string))
 		case CMD_PLAYLIST_ADD:
-			r.err = player.cmdPlaylistAdd()
+			// r.err = player.cmdPlaylistAdd()
 		default:
 			r.err = fmt.Errorf("Unsupported command %s.", cmd.code)
 		}
@@ -108,7 +92,7 @@ func (player *Player) cmdPlaylistsAdd(name string) error {
 		return fmt.Errorf("Playlist %s already exists.", name)
 	}
 
-	player.playlists = append(player.playlists, newPlaylist(name))
+	player.playlists = append(player.playlists, playlist.New(name))
 
 	return nil
 }
@@ -117,7 +101,6 @@ func (player *Player) cmdPlaylistsAdd(name string) error {
 func (player *Player) cmdPlaylistsDelete(name string) error {
 	// TODO: Stop playing if playing current playlist.
 
-
 	for i, playlist := range player.playlists {
 		if playlist.Name() == name {
 			if playlist.System() {
@@ -125,7 +108,7 @@ func (player *Player) cmdPlaylistsDelete(name string) error {
 			}
 
 			player.playlists = append(player.playlists[:i],
-				player.playlists[i+1:])
+				player.playlists[i+1:]...)
 			break
 		}
 	}
