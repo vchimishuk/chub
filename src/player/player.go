@@ -3,6 +3,7 @@ package player
 
 import (
 	"./playlist"
+	"errors"
 	"fmt"
 )
 
@@ -33,8 +34,10 @@ type Player struct {
 // New returns a newly created Player object.
 func New() *Player {
 	p := new(Player)
-	p.playlists = make([]*playlist.Playlist, 0)
 	p.playingChan = make(chan *command, 10)
+	// Create some predefined system playlists.
+	// TODO: *vfs* should be a constant.
+	p.playlists = append(p.playlists, playlist.New("*vfs*"))
 
 	return p
 }
@@ -60,16 +63,16 @@ func (player *Player) Command(cmd int, args ...interface{}) (res interface{}, er
 func (player *Player) playingProcess() {
 	for {
 		cmd := <-player.playingChan
-
 		r := new(response)
 
+		// TODO: Replace this switch with some kind of map solution.
 		switch cmd.code {
 		case CommandPlaylistsList:
-			r.arguments = player.commandPlaylistsList()
+			r.arguments, r.err = player.commandPlaylistsList()
 		case CommandPlaylistAdd:
-			player.commandPlaylistAdd(cmd.arguments[0].(string))
+			r.arguments, r.err = player.commandPlaylistAdd(cmd.arguments[0].(string))
 		case CommandPlaylistDelete:
-			r.err = player.commandPlaylistDelete(cmd.arguments[0].(string))
+			r.arguments, r.err = player.commandPlaylistDelete(cmd.arguments[0].(string))
 		// case CMD_PLAYLIST_ADD:
 		//	r.err = player.cmdPlaylistAdd()
 		default:
@@ -81,30 +84,35 @@ func (player *Player) playingProcess() {
 }
 
 // Returns playlists list.
-func (player *Player) commandPlaylistsList() []*playlist.Playlist {
-	return player.playlists
+func (player *Player) commandPlaylistsList() (data []*playlist.Playlist, err error) {
+	return player.playlists, nil
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
 // so if playlist with given name exists error will be returned. 
-func (player *Player) commandPlaylistAdd(name string) error {
+func (player *Player) commandPlaylistAdd(name string) (_ interface{}, err error) {
 	if player.playlistByName(name) != nil {
-		return fmt.Errorf("Playlist %s already exists.", name)
+		return nil, fmt.Errorf("Playlist %s already exists.", name)
 	}
 
-	player.playlists = append(player.playlists, playlist.New(name))
+	pl := playlist.New(name)
+	if pl.System() {
+		return nil, errors.New("System playlist can't be created.")
+	}
 
-	return nil
+	player.playlists = append(player.playlists, pl)
+
+	return nil, nil
 }
 
 // Deletes existing playlist by name.
-func (player *Player) commandPlaylistDelete(name string) error {
+func (player *Player) commandPlaylistDelete(name string) (_ interface{}, err error) {
 	// TODO: Stop playing if playing current playlist.
 
 	for i, playlist := range player.playlists {
 		if playlist.Name() == name {
 			if playlist.System() {
-				return fmt.Errorf("System playlist can't be deleted")
+				return nil, fmt.Errorf("System playlist can't be deleted")
 			}
 
 			player.playlists = append(player.playlists[:i],
@@ -113,7 +121,7 @@ func (player *Player) commandPlaylistDelete(name string) error {
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // playlistByName returns playlist for given name
