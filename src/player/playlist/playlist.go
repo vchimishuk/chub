@@ -2,6 +2,7 @@
 package playlist
 
 import (
+	"../../vfs"
 	"errors"
 )
 
@@ -9,6 +10,8 @@ import (
 type Playlist struct {
 	// Name of the playlist.
 	name string
+	// Contained tracks.
+	tracks []*vfs.Track
 }
 
 // Returns new playlist.
@@ -42,7 +45,22 @@ func (pl *Playlist) Rename(name string) error {
 	return nil
 }
 
+// Tracks returns tracks containing by the playlist.
+func (pl *Playlist) Tracks() []*vfs.Track {
+	return pl.tracks
+}
+
 // Len returns number of tracks in the playlist.
 func (pl *Playlist) Len() int {
-	return 0 // TODO:
+	return len(pl.tracks)
+}
+
+// Remove all tracks from the playlist.
+func (pl *Playlist) Clear() {
+	pl.tracks = nil
+}
+
+// Append tracks to the playlist.
+func (pl *Playlist) Append(track ...*vfs.Track) {
+	pl.tracks = append(pl.tracks, track...)
 }

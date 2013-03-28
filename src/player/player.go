@@ -2,6 +2,7 @@
 package player
 
 import (
+	"../vfs"
 	"./playlist"
 	"errors"
 	"fmt"
@@ -70,9 +71,16 @@ func (player *Player) playingProcess() {
 		case CommandPlaylistsList:
 			r.arguments, r.err = player.commandPlaylistsList()
 		case CommandPlaylistAdd:
-			r.arguments, r.err = player.commandPlaylistAdd(cmd.arguments[0].(string))
+			r.arguments, r.err = player.commandPlaylistAdd(
+				cmd.arguments[0].(string))
+		case CommandPlaylistAppendTrack:
+			r.arguments, r.err = player.commandPlaylistAppendTrack(
+				cmd.arguments[0].(string),
+				cmd.arguments[1].(*vfs.Track))
 		case CommandPlaylistDelete:
-			r.arguments, r.err = player.commandPlaylistDelete(cmd.arguments[0].(string))
+			r.arguments, r.err = player.commandPlaylistDelete(
+				cmd.arguments[0].(string))
+
 		// case CMD_PLAYLIST_ADD:
 		//	r.err = player.cmdPlaylistAdd()
 		default:
@@ -91,7 +99,7 @@ func (player *Player) commandPlaylistsList() (data []*playlist.Playlist, err err
 // Creates new empty playlist with give name. Playlist name should be unique,
 // so if playlist with given name exists error will be returned. 
 func (player *Player) commandPlaylistAdd(name string) (_ interface{}, err error) {
-	if player.playlistByName(name) != nil {
+	if _, err := player.playlistByName(name); err == nil {
 		return nil, fmt.Errorf("Playlist %s already exists.", name)
 	}
 
@@ -101,6 +109,18 @@ func (player *Player) commandPlaylistAdd(name string) (_ interface{}, err error)
 	}
 
 	player.playlists = append(player.playlists, pl)
+
+	return nil, nil
+}
+
+// Append one track to the playlist.
+func (player *Player) commandPlaylistAppendTrack(name string, track *vfs.Track) (_ interface{}, err error) {
+	pl, err := player.playlistByName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	pl.Append(track)
 
 	return nil, nil
 }
@@ -126,14 +146,14 @@ func (player *Player) commandPlaylistDelete(name string) (_ interface{}, err err
 
 // playlistByName returns playlist for given name
 // or nil if there is no such playlist exists.
-func (player *Player) playlistByName(name string) *playlist.Playlist {
+func (player *Player) playlistByName(name string) (pl *playlist.Playlist, err error) {
 	for _, pl := range player.playlists {
 		if pl.Name() == name {
-			return pl
+			return pl, nil
 		}
 	}
 
-	return nil
+	return nil, fmt.Errorf("Playlist %s not found.", name)
 }
 
 // --------------------

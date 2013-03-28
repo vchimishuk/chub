@@ -15,10 +15,21 @@ const (
 
 	// Creates new playlist.
 	CommandPlaylistAdd
+	// Append given folder to the playlist.
+	CommandPlaylistAppendPath
+	// Append given track to the playlist.
+	CommandPlaylistAppendTrack
 	// Removes particular playlist.
 	CommandPlaylistDelete
 	// Returns playlist information.
 	CommandPlaylistInfo
 	// Set new name to the playlis.
 	CommandPlaylistRename
+
+	// Play given track with *vfs* playlist.
+	// TODO:
+	// 1. Clear *vfs* playlist.
+	// 2. Add track's parent folder into *vfs*.
+	// 3. Start playing *vfs* from the track but not playlist beginning.
+	CommandPlayTrack
 )
