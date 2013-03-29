@@ -5,8 +5,11 @@ package player
 const (
 	// Pause/Unpase playback.
 	CommandPause int = iota
-	// Start playing.
+	// Start playing if stopped, resume pause if paused
+	// or start playing track from the beginning otherwise.
 	CommandPlay
+	// Start playing track in *vfs* playlist.
+	CommandPlayTrack
 	// Stop playing process.
 	CommandStop
 
@@ -25,11 +28,4 @@ const (
 	CommandPlaylistInfo
 	// Set new name to the playlis.
 	CommandPlaylistRename
-
-	// Play given track with *vfs* playlist.
-	// TODO:
-	// 1. Clear *vfs* playlist.
-	// 2. Add track's parent folder into *vfs*.
-	// 3. Start playing *vfs* from the track but not playlist beginning.
-	CommandPlayTrack
 )

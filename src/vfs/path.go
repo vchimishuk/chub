@@ -79,3 +79,10 @@ func (p *Path) ExtMatch(ext string) bool {
 
 	return ext == myExt
 }
+
+// Parent returns directory which contains this directory or file.
+func (p *Path) Parent() *Path {
+	i := strings.LastIndex(p.filepath, "/")
+
+	return newPath(p.filepath[:i])
+}

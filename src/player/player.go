@@ -68,6 +68,9 @@ func (player *Player) playingProcess() {
 
 		// TODO: Replace this switch with some kind of map solution.
 		switch cmd.code {
+		case CommandPlayTrack:
+			r.arguments, r.err = player.commandPlayTrack(
+				cmd.arguments[0].(*vfs.Track))
 		case CommandPlaylistsList:
 			r.arguments, r.err = player.commandPlaylistsList()
 		case CommandPlaylistAdd:
@@ -89,6 +92,28 @@ func (player *Player) playingProcess() {
 
 		cmd.responseChan <- r
 	}
+}
+
+// Start playing track in *vfs* playlist.
+func (player *Player) commandPlayTrack(track *vfs.Track) (_ interface{}, err error) {
+	pl, _ := player.playlistByName("*vfs*") // TODO: Constant.
+	pl.Clear()
+
+	entries, err := vfs.NewForPath(track.Path.Parent()).List()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if track, ok := entry.(*vfs.Track); ok {
+			pl.Append(track)
+		}
+	}
+
+	// TODO: 1. Set current playlist (from which track is playing).
+	//       2. And start playing.
+
+	return nil, nil
 }
 
 // Returns playlists list.

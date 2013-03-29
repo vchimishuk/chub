@@ -26,6 +26,15 @@ func New() *Vfs {
 	return fs
 }
 
+// NewForPath return VFS object with working directory
+// initialized to the given path.
+func NewForPath(path *Path) *Vfs {
+	fs := New()
+	fs.wd = path
+
+	return fs
+}
+
 // Wd returns current working directory path.
 // By analogy with shell (such as Bash) Wd is "pwd" command.
 func (fs *Vfs) Wd() *Path {

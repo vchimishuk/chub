@@ -12,6 +12,7 @@ type TagReaderFactory interface {
 	// Match returns true it given file can be processed with current TagReader.
 	Match(file *Path) bool
 	// Returns new TagReader implementation.
+	// TODO: TagReader function should be invoked with file.
 	TagReader() TagReader
 }
 
