@@ -8,6 +8,10 @@ import (
 	"fmt"
 )
 
+const (
+	PlaylistVfs = "*vfs*"
+)
+
 // Playing process communication command response.
 type response struct {
 	// Error.
@@ -37,8 +41,7 @@ func New() *Player {
 	p := new(Player)
 	p.playingChan = make(chan *command, 10)
 	// Create some predefined system playlists.
-	// TODO: *vfs* should be a constant.
-	p.playlists = append(p.playlists, playlist.New("*vfs*"))
+	p.playlists = append(p.playlists, playlist.New(PlaylistVfs))
 
 	return p
 }
@@ -96,7 +99,7 @@ func (player *Player) playingProcess() {
 
 // Start playing track in *vfs* playlist.
 func (player *Player) commandPlayTrack(track *vfs.Track) (_ interface{}, err error) {
-	pl, _ := player.playlistByName("*vfs*") // TODO: Constant.
+	pl, _ := player.playlistByName(PlaylistVfs)
 	pl.Clear()
 
 	entries, err := vfs.NewForPath(track.Path.Parent()).List()
