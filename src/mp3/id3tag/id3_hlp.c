@@ -23,12 +23,13 @@ enum id3_field_type id3_hlp_get_frame_type(struct id3_frame *frame)
 
 char *id3_hlp_get_frame_string(struct id3_frame *frame)
 {
-        id3_ucs4_t const *str;
+        char *str;
 
         if (id3_field_getnstrings(&frame->fields[1]) != 0) {
-                str = id3_field_getstrings(&frame->fields[1], 0);
-                if (str != NULL)
-                        str = (char *)id3_ucs4_utf8duplicate(str);
+                str = (char *) id3_field_getstrings(&frame->fields[1], 0);
+                if (str != NULL) {
+                        str = (char *) id3_ucs4_utf8duplicate((id3_ucs4_t const *) str);
+                }
         }
 
         return str;
