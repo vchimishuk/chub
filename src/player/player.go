@@ -31,15 +31,17 @@ type command struct {
 type Player struct {
 	// All (user and system) playlists list.
 	playlists []*playlist.Playlist
+	// Playlist which are playing now.
+	currentPlaylist *playlist.Playlist
 	// Channel to communicate player with. Client code can
 	// write commands and read responses to/from the channel.
-	playingChan chan *command
+	commandChan chan *command
 }
 
 // New returns a newly created Player object.
 func New() *Player {
 	p := new(Player)
-	p.playingChan = make(chan *command, 10)
+	p.commandChan = make(chan *command, 10)
 	// Create some predefined system playlists.
 	p.playlists = append(p.playlists, playlist.New(PlaylistVfs))
 
@@ -51,11 +53,48 @@ func (player *Player) Run() {
 	go player.playingProcess()
 }
 
+// PlayTrack starts playing track in *vfs* playlist.
+func (player *Player) PlayTrack(track *vfs.Track) error {
+	// TODO:
+	// res, err := player.command(CommandPlayTrack, track)
+
+	// return res.arguments[0]
+	return nil
+}
+
+// Playlists eturns list with all playlists in the system.
+func (player *Player) Playlists() []*playlist.Playlist {
+	res, _ := player.command(commandPlaylists)
+
+	return res.([]*playlist.Playlist)
+}
+
+// AddPlaylist creates new playlist.
+func (player *Player) AddPlaylist(name string) error {
+	_, err := player.command(commandAddPlaylist, name)
+
+	return err
+}
+
+// AppendTrack appends given track to the playlist.
+func (player *Player) AppendTrack(name string, track *vfs.Track) error {
+	_, err := player.command(commandAppendTrack, name, track)
+
+	return err
+}
+
+// DeletePlaylist removes playlist by name.
+func (player *Player) DeletePlaylist(name string) error {
+	_, err := player.command(commandDeletePlaylist, name)
+
+	return err
+}
+
 // Command allows to communicate with Player by sending him commands.
-func (player *Player) Command(cmd int, args ...interface{}) (res interface{}, err error) {
+func (player *Player) command(cmd int, args ...interface{}) (res interface{}, err error) {
 	c := &command{code: cmd, arguments: args, responseChan: make(chan *response, 1)}
 
-	player.playingChan <- c
+	player.commandChan <- c
 	resp := <-c.responseChan
 
 	return resp.arguments, resp.err
@@ -63,27 +102,27 @@ func (player *Player) Command(cmd int, args ...interface{}) (res interface{}, er
 
 // playingProcess is the core of the player. It runs in goroutine
 // and does the playing intself. Outer world can affects to playing process by
-// sending commands via playingChan of the Player struct.
+// sending commands via commandChan of the Player struct.
 func (player *Player) playingProcess() {
 	for {
-		cmd := <-player.playingChan
+		cmd := <-player.commandChan
 		r := new(response)
 
 		// TODO: Replace this switch with some kind of map solution.
 		switch cmd.code {
-		case CommandPlayTrack:
+		case commandPlayTrack:
 			r.arguments, r.err = player.commandPlayTrack(
 				cmd.arguments[0].(*vfs.Track))
-		case CommandPlaylistsList:
+		case commandPlaylists:
 			r.arguments, r.err = player.commandPlaylistsList()
-		case CommandPlaylistAdd:
+		case commandAddPlaylist:
 			r.arguments, r.err = player.commandPlaylistAdd(
 				cmd.arguments[0].(string))
-		case CommandPlaylistAppendTrack:
+		case commandAppendTrack:
 			r.arguments, r.err = player.commandPlaylistAppendTrack(
 				cmd.arguments[0].(string),
 				cmd.arguments[1].(*vfs.Track))
-		case CommandPlaylistDelete:
+		case commandDeletePlaylist:
 			r.arguments, r.err = player.commandPlaylistDelete(
 				cmd.arguments[0].(string))
 
@@ -114,6 +153,7 @@ func (player *Player) commandPlayTrack(track *vfs.Track) (_ interface{}, err err
 	}
 
 	// TODO: 1. Set current playlist (from which track is playing).
+	player.currentPlaylist = pl
 	//       2. And start playing.
 
 	return nil, nil
@@ -156,6 +196,7 @@ func (player *Player) commandPlaylistAppendTrack(name string, track *vfs.Track) 
 // Deletes existing playlist by name.
 func (player *Player) commandPlaylistDelete(name string) (_ interface{}, err error) {
 	// TODO: Stop playing if playing current playlist.
+	// TODO: Clear current playlist on stop.
 
 	for i, playlist := range player.playlists {
 		if playlist.Name() == name {

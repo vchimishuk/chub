@@ -4,28 +4,21 @@ package player
 // Available Player command code constants.
 const (
 	// Pause/Unpase playback.
-	CommandPause int = iota
+	commandPause int = iota
 	// Start playing if stopped, resume pause if paused
 	// or start playing track from the beginning otherwise.
-	CommandPlay
-	// Start playing track in *vfs* playlist.
-	CommandPlayTrack
+	commandPlay
+	commandPlayTrack
 	// Stop playing process.
-	CommandStop
+	commandStop
 
-	// Returns list with all playlists in the system.
-	CommandPlaylistsList
+	commandPlaylists
 
-	// Creates new playlist.
-	CommandPlaylistAdd
-	// Append given folder to the playlist.
-	CommandPlaylistAppendPath
-	// Append given track to the playlist.
-	CommandPlaylistAppendTrack
-	// Removes particular playlist.
-	CommandPlaylistDelete
+	commandAddPlaylist
+	commandAppendTrack
+	commandDeletePlaylist
 	// Returns playlist information.
-	CommandPlaylistInfo
+	commandPlaylistInfo
 	// Set new name to the playlis.
-	CommandPlaylistRename
+	commandPlaylistRename
 )
