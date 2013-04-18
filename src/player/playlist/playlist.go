@@ -3,7 +3,9 @@ package playlist
 
 import (
 	"../../vfs"
+	"container/list"
 	"errors"
+	"sync"
 )
 
 // Playlist structure.
@@ -11,12 +13,14 @@ type Playlist struct {
 	// Name of the playlist.
 	name string
 	// Contained tracks.
-	tracks []*vfs.Track
+	tracks *list.List
+	// Mutex to protect playlist from concurrent modifications.
+	mutex sync.Mutex
 }
 
 // Returns new playlist.
 func New(name string) *Playlist {
-	return &Playlist{name: name}
+	return &Playlist{name: name, tracks: list.New()}
 }
 
 // System returns true if the playlist is system.
@@ -46,21 +50,33 @@ func (pl *Playlist) Rename(name string) error {
 }
 
 // Tracks returns tracks containing by the playlist.
-func (pl *Playlist) Tracks() []*vfs.Track {
+func (pl *Playlist) Tracks() *list.List {
 	return pl.tracks
 }
 
 // Len returns number of tracks in the playlist.
 func (pl *Playlist) Len() int {
-	return len(pl.tracks)
+	return pl.tracks.Len()
 }
 
 // Remove all tracks from the playlist.
 func (pl *Playlist) Clear() {
-	pl.tracks = nil
+	pl.tracks.Init()
 }
 
 // Append tracks to the playlist.
 func (pl *Playlist) Append(track ...*vfs.Track) {
-	pl.tracks = append(pl.tracks, track...)
+	for _, t := range track {
+		pl.tracks.PushBack(t)
+	}
+}
+
+// Lock playlist mutext to prevent concurrent modifications.
+func (pl *Playlist) Lock() {
+	pl.mutex.Lock()
+}
+
+// Unlock playlist mutex.
+func (pl *Playlist) Unlock() {
+	pl.mutex.Unlock()
 }

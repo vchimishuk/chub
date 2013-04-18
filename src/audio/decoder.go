@@ -1,15 +1,16 @@
 package audio
 
 import (
+	"../vfs"
 	"fmt"
 )
 
 // Decoder interface represents audio decoder for the particular audio format.
 type Decoder interface {
-	// Match returns true if given file supported by this decoder.
-	Match(filename string) bool
+	// Match returns true if given track supported by this decoder.
+	Match(track *vfs.Track) bool // TODO: Do we need this here?
 	// Open inialize decoder object.
-	Open(filename string) error
+	Open(track *vfs.Track) error
 	// Read decode piece of data and returns raw PCM audio data.
 	Read(buf []byte) (read int, err error)
 	// Close releases decoder resources.
@@ -20,9 +21,9 @@ type Decoder interface {
 type DecoderFactory interface {
 	// Match return true if the track audio format is supported by
 	// underlying decoder.
-	Match(track int /* TODO: Find by track? */) bool
+	Match(track *vfs.Track) bool
 	// Returns new Decoder
-	Decoder(track int /* TODO: */) (decoder Decoder, err error)
+	Decoder(track *vfs.Track) (decoder Decoder, err error)
 }
 
 // List of decoder factories.
@@ -34,12 +35,13 @@ func RegisterDecoderFactory(factory DecoderFactory) {
 }
 
 // GetDecoder returns decoder for decoding given track.
-func GetDecoder(track int /* TODO: Track? */) (decoder Decoder, err error) {
+func GetDecoder(track *vfs.Track) (decoder Decoder, err error) {
 	for _, factory := range decoderFactories {
 		if factory.Match(track) {
 			return factory.Decoder(track)
 		}
 	}
 
-	return nil, fmt.Errorf("Decoder not found for file '%s'", "???") // TODO:
+	return nil, fmt.Errorf("Decoder not found for the file '%s'.",
+		track.Path.OsPath())
 }

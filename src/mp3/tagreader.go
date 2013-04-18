@@ -1,10 +1,8 @@
-// mp3 TagReader implementation.
 package mp3
 
 import (
 	"../vfs"
 	"./id3tag"
-	"strings"
 )
 
 // MP3 TagReader implementation.
@@ -27,26 +25,15 @@ func (tr *TagReader) Parse(file *vfs.Path) (tag *vfs.Tag, err error) {
 }
 
 // MP3 TagReaderFactory implementation.
-type TagReaderFactory struct {
+type tagReaderFactory struct {
 }
 
-func (factory *TagReaderFactory) Match(file *vfs.Path) bool {
-	ext := strings.ToLower(file.Ext())
-
-	return ext == ".mp3"
+func (factory *tagReaderFactory) Match(file *vfs.Path) bool {
+	return match(file)
 }
 
-func (factory *TagReaderFactory) TagReader() vfs.TagReader {
+func (factory *tagReaderFactory) TagReader() vfs.TagReader {
 	return new(TagReader)
 }
 
-// Init is a dummy function and used in the main source file only to make
-// this package loads.
-func Init() {
-
-}
-
-// Register this implementation.
-func init() {
-	vfs.RegisterTagReaderFactory(new(TagReaderFactory))
-}
+var TagReaderFactory vfs.TagReaderFactory = new(tagReaderFactory)

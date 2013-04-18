@@ -47,27 +47,18 @@ func (tr *TagReader) Parse(f *vfs.Path) (tag *vfs.Tag, err error) {
 }
 
 // Ogg TagReaderFactory implementation.
-type TagReaderFactory struct {
+type tagReaderFactory struct {
 }
 
-func (factory *TagReaderFactory) Match(file *vfs.Path) bool {
+func (factory *tagReaderFactory) Match(file *vfs.Path) bool {
 	ext := strings.ToLower(file.Ext())
 
 	// XXX: Can we support .ogv to play its sound?
 	return ext == ".ogg" || ext == ".oga"
 }
 
-func (factory *TagReaderFactory) TagReader() vfs.TagReader {
+func (factory *tagReaderFactory) TagReader() vfs.TagReader {
 	return new(TagReader)
 }
 
-// Init is a dummy function and used in the main source file only to make
-// this package loads.
-func Init() {
-
-}
-
-// Register this implementation.
-func init() {
-	vfs.RegisterTagReaderFactory(new(TagReaderFactory))
-}
+var TagReaderFactory vfs.TagReaderFactory = new(tagReaderFactory)

@@ -1,7 +1,7 @@
 // player package is the core of the program: it manages playlists and player's state.
 package player
 
-// Available Player command code constants.
+// Available commandRoutine command code constants.
 const (
 	// Pause/Unpase playback.
 	commandPause int = iota
@@ -9,6 +9,7 @@ const (
 	// or start playing track from the beginning otherwise.
 	commandPlay
 	commandPlayTrack
+	commandPlayPlaylist
 	// Stop playing process.
 	commandStop
 
@@ -21,4 +22,10 @@ const (
 	commandPlaylistInfo
 	// Set new name to the playlis.
 	commandPlaylistRename
+)
+
+// Available playingRoutine commands.
+const (
+	playingCommandStop int = iota
+	playingCommandPause
 )

@@ -16,7 +16,7 @@ type Output interface {
 	SetChannels(channels int)
 	// Wait waits some free space in output buffer, but not more than maxDelay milliseconds.
 	// true result value means that output ready for new portion of data, false -- timeout has occured.
-	Wait(maxDelay int) bool
+	Wait(maxDelay int) (ok bool, err error)
 	// AvailUpdate returns free size of output buffer. In bytes.
 	AvailUpdate() (size int, err error)
 	// Write new portion of data into buffer.
@@ -53,8 +53,4 @@ func GetOutput() (output Output, err error) {
 	}
 
 	return factory.Output()
-}
-
-func Foo() string {
-	return config.Configurations.OutputName()
 }
