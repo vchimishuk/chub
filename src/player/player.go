@@ -7,6 +7,7 @@ import (
 	"./playlist"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -19,21 +20,6 @@ const (
 	statePlaying
 	statePaused
 )
-
-// Playing process communication command response.
-type response struct {
-	// Error.
-	err error
-	// Command processing result itself.
-	arguments interface{}
-}
-
-// Playing process communication command.
-type command struct {
-	code         int
-	arguments    []interface{}
-	responseChan chan *response
-}
 
 // Player engine object.
 type Player struct {
@@ -52,6 +38,12 @@ type Player struct {
 	state int
 	// Output driver.
 	output audio.Output
+	// Playlist modification lock. Every time playlist when you need to make
+	// any playlist modification you should get this lock before. Also lock
+	// should be gotten when you select next song from the playlist,
+	// e.g. playing goroutine have to lock the current playlist during
+	// moving to the next song in the current playlist.
+	playlistLock sync.Mutex
 }
 
 // New returns a newly created Player object.
@@ -79,65 +71,98 @@ func (player *Player) Run() (err error) {
 
 // PlayTrack starts playing track in *vfs* playlist.
 func (player *Player) PlayTrack(track *vfs.Track) error {
-	_, err := player.command(commandPlayTrack, track)
+	cmd := newCommand(player.commandPlayTrack, []interface{}{track})
+	res := player.commandDispatcher(cmd)
 
-	return err
+	return res.err
 }
 
 // PlayPlaylist starts playing given playlist from the given position in the playlist.
 // First track in the playlist has 0 position.
 func (player *Player) PlayPlaylist(name string, track int) error {
-	_, err := player.command(commandPlayPlaylist)
+	cmd := newCommand(player.commandPlayPlaylist,
+		[]interface{}{name, track})
+	res := player.commandDispatcher(cmd)
 
-	return err
+	return res.err
 }
 
 // Playlists eturns list with all playlists in the system.
 func (player *Player) Playlists() []*playlist.Playlist {
-	res, _ := player.command(commandPlaylists)
+	cmd := newCommand(player.commandPlaylists,
+		[]interface{}{})
+	res := player.commandDispatcher(cmd)
+	plists := res.args[0].([]*playlist.Playlist)
 
-	return res.([]*playlist.Playlist)
+	return plists
 }
 
 // AddPlaylist creates new playlist.
 func (player *Player) AddPlaylist(name string) error {
-	_, err := player.command(commandAddPlaylist, name)
+	cmd := newCommand(player.commandAddPlaylist,
+		[]interface{}{name})
+	res := player.commandDispatcher(cmd)
 
-	return err
+	return res.err
 }
 
 // AppendTrack appends given track to the playlist.
 func (player *Player) AppendTrack(name string, track *vfs.Track) error {
-	_, err := player.command(commandAppendTrack, name, track)
+	cmd := newCommand(player.commandAppendTrack,
+		[]interface{}{name, track})
+	res := player.commandDispatcher(cmd)
 
-	return err
+	return res.err
 }
 
 // DeletePlaylist removes playlist by name.
 func (player *Player) DeletePlaylist(name string) error {
-	_, err := player.command(commandDeletePlaylist, name)
+	cmd := newCommand(player.commandDeletePlaylist,
+		[]interface{}{name})
+	res := player.commandDispatcher(cmd)
 
-	return err
+	return res.err
 }
 
 // Stop playing.
 func (player *Player) Stop() {
-	player.command(commandStop)
+	cmd := newCommand(player.commandStop,
+		[]interface{}{})
+	player.commandDispatcher(cmd)
 }
 
 // Pause or resume player.
 func (player *Player) Pause() {
-	player.command(commandPause)
+	cmd := newCommand(player.commandPause,
+		[]interface{}{})
+	player.commandDispatcher(cmd)
 }
 
-// Command allows to communicate with Player by sending him commands.
-func (player *Player) command(cmd int, args ...interface{}) (res interface{}, err error) {
-	c := &command{code: cmd, arguments: args, responseChan: make(chan *response)}
+// commandDispatcher is a wrapper for syncronous communication with
+// command routine.
+func (player *Player) commandDispatcher(cmd *command) *result {
+	player.commandChan <- cmd
+	res := <-cmd.resultChan
 
-	player.commandChan <- c
-	resp := <-c.responseChan
+	return res
+}
 
-	return resp.arguments, resp.err
+// commandRoutine is the player commands handler goroutine.
+// It doesn't hanlde any actual audio playing, and exists only
+// to make player's public API methods syncronous. In this case
+// player becomes threadsafe and all it's public methods can be invoked
+// from different routines without any synchronization (commandChan
+// do this job instead).
+func (player *Player) commandRoutine() {
+	for {
+		cmd := <-player.commandChan
+		cmd.resultChan <- player.dispatchCommand(cmd)
+	}
+}
+
+// Call appropriate handler for the given command.
+func (player *Player) dispatchCommand(cmd *command) *result {
+	return cmd.method(cmd.args)
 }
 
 // Start playing procedure for the given playlist.
@@ -145,21 +170,13 @@ func (player *Player) playPlaylist(plist *playlist.Playlist, startPos int) {
 	go player.playingRoutine(plist, startPos)
 }
 
-// playingProcess is the player commands handler.
-func (player *Player) commandRoutine() {
-	for {
-		cmd := <-player.commandChan
-		cmd.responseChan <- player.dispatchCommand(cmd)
-	}
-}
-
 // playingRoutine does data decoding and sound output.
 // This routine starts playing given playlist from the startPos.
 func (player *Player) playingRoutine(plist *playlist.Playlist, startPos int) {
 	// TODO: This function is not correct, -- playlist is not protected well.
 
-	plist.Lock()
-	defer plist.Unlock()
+	// TODO: plist.Lock()
+	// TODO: defer plist.Unlock()
 
 	if plist.Tracks().Len() == 0 || plist.Tracks().Len() <= startPos {
 		return
@@ -277,53 +294,16 @@ func (player *Player) doPlay(decoder audio.Decoder, output audio.Output) bool {
 	return true
 }
 
-// Call appropriate handler for the given command. 
-func (player *Player) dispatchCommand(cmd *command) *response {
-	r := new(response)
-
-	// TODO: Replace this switch with some kind of map solution.
-	switch cmd.code {
-	case commandPlayTrack:
-		r.arguments, r.err = player.commandPlayTrack(
-			cmd.arguments[0].(*vfs.Track))
-	case commandPlayPlaylist:
-		r.arguments, r.err = player.commandPlayPlaylist(
-			cmd.arguments[0].(string),
-			cmd.arguments[1].(int))
-	case commandPlaylists:
-		r.arguments, r.err = player.commandPlaylistsList()
-	case commandAddPlaylist:
-		r.arguments, r.err = player.commandPlaylistAdd(
-			cmd.arguments[0].(string))
-	case commandAppendTrack:
-		r.arguments, r.err = player.commandPlaylistAppendTrack(
-			cmd.arguments[0].(string),
-			cmd.arguments[1].(*vfs.Track))
-	case commandDeletePlaylist:
-		r.arguments, r.err = player.commandPlaylistDelete(
-			cmd.arguments[0].(string))
-	case commandStop:
-		r.arguments, r.err = player.commandStop()
-	case commandPause:
-		r.arguments, r.err = player.commandPause()
-
-	// case CMD_PLAYLIST_ADD:
-	//	r.err = player.cmdPlaylistAdd()
-	default:
-		r.err = fmt.Errorf("Unsupported command %s.", cmd.code)
-	}
-
-	return r
-}
-
 // Start playing track in *vfs* playlist.
-func (player *Player) commandPlayTrack(track *vfs.Track) (_ interface{}, err error) {
+func (player *Player) commandPlayTrack(args []interface{}) *result {
+	track := args[0].(*vfs.Track)
+
 	plist, _ := player.playlistByName(PlaylistVfs)
 	plist.Clear()
 
 	entries, err := vfs.NewForPath(track.Path.Parent()).List()
 	if err != nil {
-		return nil, err
+		return newEmptyResult()
 	}
 
 	for _, entry := range entries {
@@ -335,59 +315,70 @@ func (player *Player) commandPlayTrack(track *vfs.Track) (_ interface{}, err err
 	// TODO: Find correct index. How? Compare Path + Part + Start?
 	player.playPlaylist(plist, 0)
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Start playing existing playlist from the given position.
-func (player *Player) commandPlayPlaylist(name string, track int) (_ interface{}, err error) {
+func (player *Player) commandPlayPlaylist(args []interface{}) *result {
+	// plistName := args[0].(string)
+	// track := args[1].(int)
+
 	// TODO:
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Returns playlists list.
-func (player *Player) commandPlaylistsList() (data []*playlist.Playlist, err error) {
-	return player.playlists, nil
+func (player *Player) commandPlaylists(args []interface{}) *result {
+	return newResult(player.playlists)
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
-// so if playlist with given name exists error will be returned. 
-func (player *Player) commandPlaylistAdd(name string) (_ interface{}, err error) {
+// so if playlist with given name exists error will be returned.
+func (player *Player) commandAddPlaylist(args []interface{}) *result {
+	name := args[0].(string)
+
 	if _, err := player.playlistByName(name); err == nil {
-		return nil, fmt.Errorf("Playlist %s already exists.", name)
+		return newErrorResult(fmt.Errorf("Playlist %s already exists.", name))
 	}
 
 	plist := playlist.New(name)
 	if plist.System() {
-		return nil, errors.New("System playlist can't be created.")
+		return newErrorResult(errors.New("System playlist can't be created."))
 	}
 
 	player.playlists = append(player.playlists, plist)
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Append one track to the playlist.
-func (player *Player) commandPlaylistAppendTrack(name string, track *vfs.Track) (_ interface{}, err error) {
+func (player *Player) commandAppendTrack(args []interface{}) *result {
+	name := args[0].(string)
+	track := args[1].(*vfs.Track)
+
 	plist, err := player.playlistByName(name)
 	if err != nil {
-		return nil, err
+		return newErrorResult(err)
 	}
 
+	player.playlistLock.Lock()
+	defer player.playlistLock.Unlock()
 	plist.Append(track)
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Deletes existing playlist by name.
-func (player *Player) commandPlaylistDelete(name string) (_ interface{}, err error) {
+func (player *Player) commandDeletePlaylist(args []interface{}) *result {
 	// TODO: Stop playing if playing current playlist.
 	// TODO: Clear current playlist on stop.
+	name := args[0].(string)
 
 	for i, playlist := range player.playlists {
 		if playlist.Name() == name {
 			if playlist.System() {
-				return nil, fmt.Errorf("System playlist can't be deleted")
+				return newErrorResult(fmt.Errorf("System playlist can't be deleted"))
 			}
 
 			player.playlists = append(player.playlists[:i],
@@ -396,25 +387,25 @@ func (player *Player) commandPlaylistDelete(name string) (_ interface{}, err err
 		}
 	}
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Stop current playing player command.
-func (player *Player) commandStop() (_ interface{}, _ error) {
+func (player *Player) commandStop(args []interface{}) *result {
 	if player.state != stateStopped {
 		player.playingChan <- playingCommandStop
 	}
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // Pauses/Resumes playing process.
-func (player *Player) commandPause() (_ interface{}, _ error) {
+func (player *Player) commandPause(args []interface{}) *result {
 	if player.state != stateStopped {
 		player.playingChan <- playingCommandPause
 	}
 
-	return nil, nil
+	return newEmptyResult()
 }
 
 // playlistByName returns playlist for given name

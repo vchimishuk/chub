@@ -5,7 +5,6 @@ import (
 	"../../vfs"
 	"container/list"
 	"errors"
-	"sync"
 )
 
 // Playlist structure.
@@ -14,8 +13,6 @@ type Playlist struct {
 	name string
 	// Contained tracks.
 	tracks *list.List
-	// Mutex to protect playlist from concurrent modifications.
-	mutex sync.Mutex
 }
 
 // Returns new playlist.
@@ -69,14 +66,4 @@ func (pl *Playlist) Append(track ...*vfs.Track) {
 	for _, t := range track {
 		pl.tracks.PushBack(t)
 	}
-}
-
-// Lock playlist mutext to prevent concurrent modifications.
-func (pl *Playlist) Lock() {
-	pl.mutex.Lock()
-}
-
-// Unlock playlist mutex.
-func (pl *Playlist) Unlock() {
-	pl.mutex.Unlock()
 }
