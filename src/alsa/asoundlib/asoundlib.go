@@ -80,7 +80,7 @@ const (
 	 SND_PCM_FORMAT_U32 	Unsigned 32 bit CPU endian
 	 SND_PCM_FORMAT_FLOAT 	Float 32 bit CPU endian
 	 SND_PCM_FORMAT_FLOAT64 	Float 64 bit CPU endian
-	 SND_PCM_FORMAT_IEC958_SUBFRAME 	IEC-958 CPU Endian 
+	 SND_PCM_FORMAT_IEC958_SUBFRAME 	IEC-958 CPU Endian
 	*/
 )
 
@@ -227,7 +227,16 @@ func (handle *Handle) Write(buf []byte) (wrote int, err error) {
 
 // Pause PCM.
 func (handle *Handle) Pause() error {
-	err := C.snd_pcm_pause(handle.cHandle, 1)
+	var pause int
+
+	if handle.Paused() {
+		pause = 0
+	} else {
+		pause = 1
+	}
+
+	err := C.snd_pcm_pause(handle.cHandle, C.int(pause))
+
 	if err != 0 {
 		return fmt.Errorf("Pause failed. %s", strError(err))
 	}
@@ -235,14 +244,9 @@ func (handle *Handle) Pause() error {
 	return nil
 }
 
-// Unpause PCM.
-func (handle *Handle) Unpause() error {
-	err := C.snd_pcm_pause(handle.cHandle, 0)
-	if err != 0 {
-		return fmt.Errorf("Unpause failed. %s", strError(err))
-	}
-
-	return nil
+// Check if we are in the paused state right now.
+func (handle *Handle) Paused() bool {
+	return C.SND_PCM_STATE_PAUSED == C.snd_pcm_state(handle.cHandle)
 }
 
 // Close closes stream and release the handler.

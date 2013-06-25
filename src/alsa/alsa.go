@@ -57,8 +57,8 @@ func (a *Alsa) Pause() {
 	a.handle.Pause()
 }
 
-func (a *Alsa) Unpause() {
-	a.handle.Unpause()
+func (a *Alsa) Paused() bool {
+	return a.handle.Paused()
 }
 
 func (a *Alsa) Close() {

@@ -1,7 +1,7 @@
 // player package is the core of the program: it manages playlists and player's state.
 package player
 
-type commandHandler func(args []interface{}) *result
+type commandHandler func(args ...interface{}) *result
 
 // Command for communication with player's command routine.
 type command struct {
@@ -21,8 +21,8 @@ type result struct {
 	err error
 }
 
-// creates newly initialized command object.
-func newCommand(method commandHandler, args []interface{}) *command {
+// newCommand creates newly initialized command object.
+func newCommand(method commandHandler, args ...interface{}) *command {
 	return &command{method: method, args: args, resultChan: make(chan *result)}
 }
 
@@ -40,9 +40,3 @@ func newErrorResult(err error) *result {
 func newResult(args ...interface{}) *result {
 	return &result{args: args}
 }
-
-// Available playingRoutine commands.
-const (
-	playingCommandStop int = iota
-	playingCommandPause
-)

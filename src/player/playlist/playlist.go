@@ -5,6 +5,7 @@ import (
 	"../../vfs"
 	"container/list"
 	"errors"
+	"sync"
 )
 
 // Playlist structure.
@@ -12,7 +13,14 @@ type Playlist struct {
 	// Name of the playlist.
 	name string
 	// Contained tracks.
+	// TODO: Replace list with slice.
 	tracks *list.List
+	// Playlist modification lock. Only player's routine and playing thread
+	// routines can manage playlists, and since playing thread routine
+	// can access only current playing playlist only the last one should
+	// be locked before modification. So, all other playlists don't use
+	// this lock (till they become current).
+	lock sync.Mutex
 }
 
 // Returns new playlist.
@@ -46,9 +54,18 @@ func (pl *Playlist) Rename(name string) error {
 	return nil
 }
 
-// Tracks returns tracks containing by the playlist.
-func (pl *Playlist) Tracks() *list.List {
-	return pl.tracks
+// Get returns track by its index.
+func (pl *Playlist) Get(i int) *vfs.Track {
+	if i >= pl.Len() {
+		panic("Track index out of range.")
+	}
+
+	entry := pl.tracks.Front()
+	for i := 0; i < i; i++ {
+		entry = entry.Next()
+	}
+
+	return entry.Value.(*vfs.Track)
 }
 
 // Len returns number of tracks in the playlist.
@@ -66,4 +83,14 @@ func (pl *Playlist) Append(track ...*vfs.Track) {
 	for _, t := range track {
 		pl.tracks.PushBack(t)
 	}
+}
+
+// Lock current playlist for modification.
+func (pl *Playlist) Lock() {
+	pl.lock.Lock()
+}
+
+// Release modification lock.
+func (pl *Playlist) Unlock() {
+	pl.lock.Unlock()
 }

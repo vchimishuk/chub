@@ -2,13 +2,11 @@
 package player
 
 import (
-	"../audio"
 	"../vfs"
+	"./playingthread"
 	"./playlist"
 	"errors"
 	"fmt"
-	"sync"
-	"time"
 )
 
 const (
@@ -32,25 +30,14 @@ type Player struct {
 	// Channel to communicate player with. Client code can
 	// write commands and read responses to/from the channel.
 	commandChan chan *command
-	// Channel for communication with playingRoutine.
-	playingChan chan int
-	// Playing process current status.
-	state int
-	// Output driver.
-	output audio.Output
-	// Playlist modification lock. Every time playlist when you need to make
-	// any playlist modification you should get this lock before. Also lock
-	// should be gotten when you select next song from the playlist,
-	// e.g. playing goroutine have to lock the current playlist during
-	// moving to the next song in the current playlist.
-	playlistLock sync.Mutex
+	// Playing thread, -- the core decode -> output object.
+	playingThread *playingthread.PlayingThread
 }
 
 // New returns a newly created Player object.
 func New() *Player {
 	p := new(Player)
 	p.commandChan = make(chan *command, 10)
-	p.playingChan = make(chan int)
 	// Create some predefined system playlists.
 	p.playlists = append(p.playlists, playlist.New(PlaylistVfs))
 
@@ -58,12 +45,7 @@ func New() *Player {
 }
 
 // Run starts Player execution.
-func (player *Player) Run() (err error) {
-	player.output, err = audio.GetOutput()
-	if err != nil {
-		return err
-	}
-
+func (player *Player) Run() error {
 	go player.commandRoutine()
 
 	return nil
@@ -71,7 +53,7 @@ func (player *Player) Run() (err error) {
 
 // PlayTrack starts playing track in *vfs* playlist.
 func (player *Player) PlayTrack(track *vfs.Track) error {
-	cmd := newCommand(player.commandPlayTrack, []interface{}{track})
+	cmd := newCommand(player.commandPlayTrack, track)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -80,8 +62,7 @@ func (player *Player) PlayTrack(track *vfs.Track) error {
 // PlayPlaylist starts playing given playlist from the given position in the playlist.
 // First track in the playlist has 0 position.
 func (player *Player) PlayPlaylist(name string, track int) error {
-	cmd := newCommand(player.commandPlayPlaylist,
-		[]interface{}{name, track})
+	cmd := newCommand(player.commandPlayPlaylist, name, track)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -89,8 +70,7 @@ func (player *Player) PlayPlaylist(name string, track int) error {
 
 // Playlists eturns list with all playlists in the system.
 func (player *Player) Playlists() []*playlist.Playlist {
-	cmd := newCommand(player.commandPlaylists,
-		[]interface{}{})
+	cmd := newCommand(player.commandPlaylists)
 	res := player.commandDispatcher(cmd)
 	plists := res.args[0].([]*playlist.Playlist)
 
@@ -99,8 +79,7 @@ func (player *Player) Playlists() []*playlist.Playlist {
 
 // AddPlaylist creates new playlist.
 func (player *Player) AddPlaylist(name string) error {
-	cmd := newCommand(player.commandAddPlaylist,
-		[]interface{}{name})
+	cmd := newCommand(player.commandAddPlaylist, name)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -108,8 +87,7 @@ func (player *Player) AddPlaylist(name string) error {
 
 // AppendTrack appends given track to the playlist.
 func (player *Player) AppendTrack(name string, track *vfs.Track) error {
-	cmd := newCommand(player.commandAppendTrack,
-		[]interface{}{name, track})
+	cmd := newCommand(player.commandAppendTrack, name, track)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -117,8 +95,7 @@ func (player *Player) AppendTrack(name string, track *vfs.Track) error {
 
 // DeletePlaylist removes playlist by name.
 func (player *Player) DeletePlaylist(name string) error {
-	cmd := newCommand(player.commandDeletePlaylist,
-		[]interface{}{name})
+	cmd := newCommand(player.commandDeletePlaylist, name)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -126,16 +103,19 @@ func (player *Player) DeletePlaylist(name string) error {
 
 // Stop playing.
 func (player *Player) Stop() {
-	cmd := newCommand(player.commandStop,
-		[]interface{}{})
+	cmd := newCommand(player.commandStop, nil)
 	player.commandDispatcher(cmd)
 }
 
 // Pause or resume player.
 func (player *Player) Pause() {
-	cmd := newCommand(player.commandPause,
-		[]interface{}{})
+	cmd := newCommand(player.commandPause, nil)
 	player.commandDispatcher(cmd)
+}
+
+// Returns true if player is in paused state now.
+func (player *Player) Paused() bool {
+	return player.playingThread.Paused()
 }
 
 // commandDispatcher is a wrapper for syncronous communication with
@@ -162,140 +142,11 @@ func (player *Player) commandRoutine() {
 
 // Call appropriate handler for the given command.
 func (player *Player) dispatchCommand(cmd *command) *result {
-	return cmd.method(cmd.args)
-}
-
-// Start playing procedure for the given playlist.
-func (player *Player) playPlaylist(plist *playlist.Playlist, startPos int) {
-	go player.playingRoutine(plist, startPos)
-}
-
-// playingRoutine does data decoding and sound output.
-// This routine starts playing given playlist from the startPos.
-func (player *Player) playingRoutine(plist *playlist.Playlist, startPos int) {
-	// TODO: This function is not correct, -- playlist is not protected well.
-
-	// TODO: plist.Lock()
-	// TODO: defer plist.Unlock()
-
-	if plist.Tracks().Len() == 0 || plist.Tracks().Len() <= startPos {
-		return
-	}
-
-	err := player.output.Open()
-	if err != nil {
-		// TODO: Log this error.
-		return
-	}
-	defer player.output.Close()
-	player.output.SetSampleRate(44100)
-	player.output.SetChannels(2)
-
-	// Find correct entry for start.
-	entry := plist.Tracks().Front()
-	for i := 0; i < startPos; i++ {
-		entry = entry.Next()
-	}
-
-	player.currentPlaylist = plist
-	playNext := true
-
-	for playNext && entry != nil {
-		player.currentTrack = entry.Value.(*vfs.Track)
-		decoder, err := audio.GetDecoder(player.currentTrack)
-
-		if err == nil {
-			err = decoder.Open(player.currentTrack) // XXX:
-			if err != nil {
-				// TODO: Just log it and continue.
-				panic("decoder.Open() failed.")
-			}
-			playNext = player.doPlay(decoder, player.output)
-		} else {
-			// Just skip this track on any problem.
-			// TODO: Log it.
-		}
-
-		entry = entry.Next()
-	}
-}
-
-// Do actual decode -> output process.
-// Returns false if playing process should be stopped (i.e. stop command was received).
-func (player *Player) doPlay(decoder audio.Decoder, output audio.Output) bool {
-	// TODO: Refactor all this crappy function.
-	bufAvailable := make(chan bool)
-	bufAvailableChecker := func() {
-		// TODO: Add some mutex to be sure that only one instance of the
-		//       groutine is running.
-		for player.state != stateStopped {
-			ready, err := output.Wait(100)
-
-			if err != nil {
-				// Sometimes Wait failed, so just wait some time and retry.
-				time.Sleep(100 * time.Millisecond)
-			} else if ready && player.state == statePlaying {
-				bufAvailable <- true
-			}
-		}
-	}
-
-	player.state = statePlaying
-
-	// TODO: Check output HW params and maybe apply new ones.
-
-	go bufAvailableChecker()
-
-	defer fmt.Printf("exiting doPlay()\n")
-
-	for {
-		select {
-		case cmd := <-player.playingChan:
-			switch cmd {
-			case playingCommandStop:
-				player.state = stateStopped
-			case playingCommandPause:
-				switch player.state {
-				case statePlaying:
-					player.state = statePaused
-				case statePaused:
-					player.state = statePlaying
-				default:
-					panic("Illegal player state found.")
-				}
-			}
-		case <-bufAvailable:
-			// Do nothing, just wake up.
-		}
-
-		switch player.state {
-		case statePlaying:
-			size, _ := output.AvailUpdate()
-
-			buf := make([]byte, size)
-			// TODO: Error processing.
-			// TODO: When track is finished?
-			read, _ := decoder.Read(buf)
-			// written, err := output.Write(buf[:read])
-			output.Write(buf[:read])
-
-			// fmt.Printf("size: %d\n", size)
-			// fmt.Printf("read: %d\n", read)
-			// fmt.Printf("written: %d\n", written)
-			// fmt.Printf("err: %v\n", err)
-		case stateStopped:
-			return false
-		case statePaused:
-			// Do nothing here, just sleep with select till
-			// playingCommandPause wakes us up.
-		}
-	}
-
-	return true
+	return cmd.method(cmd.args...)
 }
 
 // Start playing track in *vfs* playlist.
-func (player *Player) commandPlayTrack(args []interface{}) *result {
+func (player *Player) commandPlayTrack(args ...interface{}) *result {
 	track := args[0].(*vfs.Track)
 
 	plist, _ := player.playlistByName(PlaylistVfs)
@@ -313,29 +164,39 @@ func (player *Player) commandPlayTrack(args []interface{}) *result {
 	}
 
 	// TODO: Find correct index. How? Compare Path + Part + Start?
-	player.playPlaylist(plist, 0)
-
-	return newEmptyResult()
+	return player.commandPlayPlaylist(PlaylistVfs, 0)
 }
 
 // Start playing existing playlist from the given position.
-func (player *Player) commandPlayPlaylist(args []interface{}) *result {
-	// plistName := args[0].(string)
-	// track := args[1].(int)
+func (player *Player) commandPlayPlaylist(args ...interface{}) *result {
+	name := args[0].(string)
+	track := args[1].(int)
+	plist, err := player.playlistByName(name)
+	if err != nil {
+		return newErrorResult(err)
+	}
 
-	// TODO:
+	player.playingThread = playingthread.New(plist)
+	err = player.playingThread.Run()
+	if err != nil {
+		return newErrorResult(err)
+	}
+	err = player.playingThread.Play(track)
+	if err != nil {
+		return newErrorResult(err)
+	}
 
 	return newEmptyResult()
 }
 
 // Returns playlists list.
-func (player *Player) commandPlaylists(args []interface{}) *result {
+func (player *Player) commandPlaylists(args ...interface{}) *result {
 	return newResult(player.playlists)
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
 // so if playlist with given name exists error will be returned.
-func (player *Player) commandAddPlaylist(args []interface{}) *result {
+func (player *Player) commandAddPlaylist(args ...interface{}) *result {
 	name := args[0].(string)
 
 	if _, err := player.playlistByName(name); err == nil {
@@ -353,7 +214,7 @@ func (player *Player) commandAddPlaylist(args []interface{}) *result {
 }
 
 // Append one track to the playlist.
-func (player *Player) commandAppendTrack(args []interface{}) *result {
+func (player *Player) commandAppendTrack(args ...interface{}) *result {
 	name := args[0].(string)
 	track := args[1].(*vfs.Track)
 
@@ -362,15 +223,18 @@ func (player *Player) commandAppendTrack(args []interface{}) *result {
 		return newErrorResult(err)
 	}
 
-	player.playlistLock.Lock()
-	defer player.playlistLock.Unlock()
+	if plist == player.currentPlaylist {
+		plist.Lock()
+		defer plist.Unlock()
+	}
+
 	plist.Append(track)
 
 	return newEmptyResult()
 }
 
 // Deletes existing playlist by name.
-func (player *Player) commandDeletePlaylist(args []interface{}) *result {
+func (player *Player) commandDeletePlaylist(args ...interface{}) *result {
 	// TODO: Stop playing if playing current playlist.
 	// TODO: Clear current playlist on stop.
 	name := args[0].(string)
@@ -391,19 +255,15 @@ func (player *Player) commandDeletePlaylist(args []interface{}) *result {
 }
 
 // Stop current playing player command.
-func (player *Player) commandStop(args []interface{}) *result {
-	if player.state != stateStopped {
-		player.playingChan <- playingCommandStop
-	}
+func (player *Player) commandStop(args ...interface{}) *result {
+	player.playingThread.Stop()
 
 	return newEmptyResult()
 }
 
 // Pauses/Resumes playing process.
-func (player *Player) commandPause(args []interface{}) *result {
-	if player.state != stateStopped {
-		player.playingChan <- playingCommandPause
-	}
+func (player *Player) commandPause(args ...interface{}) *result {
+	player.playingThread.Pause()
 
 	return newEmptyResult()
 }
