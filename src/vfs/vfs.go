@@ -63,7 +63,7 @@ func (fs *Vfs) Cd(dir string) error {
 // All directory entries (Directory and Track structs) are sorted in the next way:
 // alphabetic order sorted directories come first,
 // alphabetic sorted files comes after directories list.
-func (fs *Vfs) List() (entries []interface{}, err error) {
+func (fs *Vfs) Ls() (entries []interface{}, err error) {
 	// TODO: Directory listing alghorythm here is not optimal
 	//       and I promice improve it in the future.
 
@@ -151,7 +151,7 @@ func (fs *Vfs) readTracks(dir *Path) (tracks []*Track, err error) {
 	sort.Strings(names)
 
 	// Process CUE files first and then only audio files which was not
-	// found inside CUE ones. 
+	// found inside CUE ones.
 
 	tracks = make([]*Track, 0, len(names))
 	audioFilenames := make([]string, 0, len(names))

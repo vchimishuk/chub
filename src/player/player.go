@@ -152,7 +152,7 @@ func (player *Player) commandPlayTrack(args ...interface{}) *result {
 	plist, _ := player.playlistByName(PlaylistVfs)
 	plist.Clear()
 
-	entries, err := vfs.NewForPath(track.Path.Parent()).List()
+	entries, err := vfs.NewForPath(track.Path.Parent()).Ls()
 	if err != nil {
 		return newEmptyResult()
 	}
