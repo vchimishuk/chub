@@ -6,14 +6,23 @@ import (
 
 // This command testcases should be parsed successfully.
 var passTests = []string{
+	"ADDPLAYLIST Name",
+	"LS /",
 	"PING",
+	"PLAYLISTS",
 	"QUIT",
+	"QUIT ",
 }
 
 // This command testcases should not be parsed successfully.
 var failTests = []string{
 	"",
+	"ADDPLAYLIST",
+	"ADDPLAYLIST foo bar",
+	"LS",
+	"LS foo bar",
 	"PING foo",
+	"PLAYLISTS 1",
 	"UNEXISTING_COMMAND",
 }
 
