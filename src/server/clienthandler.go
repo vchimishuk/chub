@@ -105,7 +105,9 @@ func (cl *clientHandler) cmdPlaylists() {
 	cl.ok()
 
 	for _, plist := range cl.player.Playlists() {
-		cl.writeLn(plist.Name())
+		cl.write("Name: ").write(strconv.Quote(plist.Name())).write(", ")
+		cl.write("Length: ").write(strconv.Itoa(plist.Len()))
+		cl.writeLn("")
 	}
 }
 
