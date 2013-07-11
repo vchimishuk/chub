@@ -84,12 +84,14 @@ func (cl *clientHandler) cmdLs(dir string) {
 				cl.write("Album: ").write(strconv.Quote(tag.Album)).write(", ")
 				cl.write("Title: ").write(strconv.Quote(tag.Title)).write(", ")
 				cl.write("Number: ").write(strconv.Itoa(tag.Number)).write(", ")
-				cl.write("Length: ").write(strconv.Itoa(tag.Length)).write(", ")
+				cl.write("Length: ").write(strconv.Itoa(tag.Length))
 				cl.writeLn("")
 			} else {
 				d := e.(*vfs.Directory)
 				cl.write("Type: DIRECTORY, ")
-				cl.write("Name: ").writeLn(strconv.Quote(d.Name))
+				cl.write("Name: ").write(strconv.Quote(d.Name)).write(", ")
+				cl.write("Path: ").write(strconv.Quote(d.Path.String()))
+				cl.writeLn("")
 			}
 		}
 	}
