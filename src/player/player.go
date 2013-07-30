@@ -85,9 +85,9 @@ func (player *Player) AddPlaylist(name string) error {
 	return res.err
 }
 
-// AppendTrack appends given track to the playlist.
-func (player *Player) AppendTrack(name string, track *vfs.Track) error {
-	cmd := newCommand(player.commandAppendTrack, name, track)
+// AddTrack appends given track to the playlist.
+func (player *Player) AddTrack(name string, track *vfs.Track) error {
+	cmd := newCommand(player.commandAddTrack, name, track)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -214,7 +214,7 @@ func (player *Player) commandAddPlaylist(args ...interface{}) *result {
 }
 
 // Append one track to the playlist.
-func (player *Player) commandAppendTrack(args ...interface{}) *result {
+func (player *Player) commandAddTrack(args ...interface{}) *result {
 	name := args[0].(string)
 	track := args[1].(*vfs.Track)
 
