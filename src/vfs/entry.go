@@ -34,7 +34,7 @@ type Track struct {
 	Path *Path
 	// Track media information.
 	Tag *Tag
-	// If Part is true it means this track represents piece of the 
+	// If Part is true it means this track represents piece of the
 	// actual file, not the whole file. E. g. we have album FLAC file
 	// and this track points only to one song in this FLAC file (which is
 	// album itself).

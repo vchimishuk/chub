@@ -6,6 +6,7 @@ import (
 
 // This command testcases should be parsed successfully.
 var passTests = []string{
+	"ADD plist path",
 	"ADDPLAYLIST Name",
 	"LS /",
 	"PING",
@@ -17,6 +18,9 @@ var passTests = []string{
 // This command testcases should not be parsed successfully.
 var failTests = []string{
 	"",
+	"ADD",
+	"ADD foo",
+	"ADD foo bar baz",
 	"ADDPLAYLIST",
 	"ADDPLAYLIST foo bar",
 	"LS",

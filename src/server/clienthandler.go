@@ -30,6 +30,10 @@ func (cl *clientHandler) HandleCommand(cmd *command) bool {
 	var quit bool = false
 
 	switch cmd.name {
+	case cmdAdd:
+		name := cmd.args[0].(string)
+		path := cmd.args[1].(string)
+		cl.cmdAdd(name, path)
 	case cmdAddPlaylist:
 		name := cmd.args[0].(string)
 		cl.cmdAddPlaylist(name)
@@ -52,6 +56,16 @@ func (cl *clientHandler) HandleCommand(cmd *command) bool {
 	return quit
 }
 
+// ADD command handler.
+func (cl *clientHandler) cmdAdd(name string, path string) {
+	err := cl.player.Add(name, vfs.NewPath(path))
+	if err != nil {
+		cl.WriteError(err.Error())
+	} else {
+		cl.ok()
+	}
+}
+
 // ADDPLAYLIST command handler.
 func (cl *clientHandler) cmdAddPlaylist(name string) {
 	err := cl.player.AddPlaylist(name)
@@ -64,20 +78,17 @@ func (cl *clientHandler) cmdAddPlaylist(name string) {
 
 // LS command handler.
 func (cl *clientHandler) cmdLs(dir string) {
-	fs := vfs.New()
-	err := fs.Cd(dir)
+	path := vfs.NewPath(dir)
+
+	entries, err := path.List()
 	if err != nil {
 		cl.WriteError(err.Error())
 	} else {
 		cl.ok()
-
-		entries, err := fs.Ls()
-		if err != nil {
-			cl.WriteError(err.Error())
-		}
-
 		for _, e := range entries {
-			if track, ok := e.(*vfs.Track); ok {
+			switch e.(type) {
+			case *vfs.Track:
+				track := e.(*vfs.Track)
 				tag := track.Tag
 				cl.write("Type: TRACK, ")
 				cl.write("Artist: ").write(strconv.Quote(tag.Artist)).write(", ")
@@ -86,12 +97,14 @@ func (cl *clientHandler) cmdLs(dir string) {
 				cl.write("Number: ").write(strconv.Itoa(tag.Number)).write(", ")
 				cl.write("Length: ").write(strconv.Itoa(tag.Length))
 				cl.writeLn("")
-			} else {
+			case *vfs.Directory:
 				d := e.(*vfs.Directory)
 				cl.write("Type: DIRECTORY, ")
 				cl.write("Name: ").write(strconv.Quote(d.Name)).write(", ")
 				cl.write("Path: ").write(strconv.Quote(d.Path.String()))
 				cl.writeLn("")
+			default:
+				panic("Unsupported entry type.")
 			}
 		}
 	}

@@ -85,9 +85,11 @@ func (player *Player) AddPlaylist(name string) error {
 	return res.err
 }
 
-// AddTrack appends given track to the playlist.
-func (player *Player) AddTrack(name string, track *vfs.Track) error {
-	cmd := newCommand(player.commandAddTrack, name, track)
+// Add adds track or directory pointed by the path parameter to the playlist.
+// If path represents a directory entry all containing items will be added recursive.
+// This function expects playlist to be locked and synchronized by a caller.
+func (player *Player) Add(name string, path *vfs.Path) error {
+	cmd := newCommand(player.commandAdd, name, path)
 	res := player.commandDispatcher(cmd)
 
 	return res.err
@@ -152,7 +154,7 @@ func (player *Player) commandPlayTrack(args ...interface{}) *result {
 	plist, _ := player.playlistByName(PlaylistVfs)
 	plist.Clear()
 
-	entries, err := vfs.NewForPath(track.Path.Parent()).Ls()
+	entries, err := track.Path.Parent().List()
 	if err != nil {
 		return newEmptyResult()
 	}
@@ -213,10 +215,10 @@ func (player *Player) commandAddPlaylist(args ...interface{}) *result {
 	return newEmptyResult()
 }
 
-// Append one track to the playlist.
-func (player *Player) commandAddTrack(args ...interface{}) *result {
+// commandAdd adds object pointed by path to the end of the playlist.
+func (player *Player) commandAdd(args ...interface{}) *result {
 	name := args[0].(string)
-	track := args[1].(*vfs.Track)
+	path := args[1].(*vfs.Path)
 
 	plist, err := player.playlistByName(name)
 	if err != nil {
@@ -228,7 +230,7 @@ func (player *Player) commandAddTrack(args ...interface{}) *result {
 		defer plist.Unlock()
 	}
 
-	plist.Append(track)
+	player.add(plist, path)
 
 	return newEmptyResult()
 }
@@ -266,6 +268,41 @@ func (player *Player) commandPause(args ...interface{}) *result {
 	player.playingThread.Pause()
 
 	return newEmptyResult()
+}
+
+// add adds recursive path to the end of the playlist.
+func (player *Player) add(plist *playlist.Playlist, path *vfs.Path) {
+	isDir, err := path.IsDirectory()
+	if err != nil {
+		// TODO: Log error.
+		// Ignore broken folders.
+		return
+	}
+
+	if isDir {
+		entries, err := path.List()
+		if err != nil {
+			// TODO: Log the error.
+			// Ignore broken folders.
+			return
+		} else {
+			for _, e := range entries {
+				switch e.(type) {
+				case *vfs.Track:
+					plist.Append(e.(*vfs.Track))
+				case *vfs.Directory:
+					player.add(plist, e.(*vfs.Directory).Path)
+				}
+			}
+		}
+	} else {
+		track, err := path.Track()
+		if err != nil {
+			// TODO: Log it.
+		} else {
+			plist.Append(track)
+		}
+	}
 }
 
 // playlistByName returns playlist for given name

@@ -15,6 +15,7 @@ import (
 
 // Available command names.
 const (
+	cmdAdd         = "ADD"
 	cmdAddPlaylist = "ADDPLAYLIST"
 	cmdLs          = "LS"
 	cmdPing        = "PING"
@@ -41,11 +42,18 @@ type command struct {
 // Desctiption of all available commands and their format.
 // So we can validate client's requests using this information.
 var commandArguments = map[string][]argumentType{
+	// Args: playlist name, dir path.
+	cmdAdd: []argumentType{argumentTypeString, argumentTypeString},
+	// Args: playlist name.
 	cmdAddPlaylist: []argumentType{argumentTypeString},
-	cmdLs:          []argumentType{argumentTypeString},
-	cmdPing:        []argumentType{},
-	cmdPlaylists:   []argumentType{},
-	cmdQuit:        []argumentType{},
+	// Args: dir path.
+	cmdLs: []argumentType{argumentTypeString},
+	// Args:
+	cmdPing: []argumentType{},
+	// Args:
+	cmdPlaylists: []argumentType{},
+	// Args:
+	cmdQuit: []argumentType{},
 }
 
 // parseCommand converts raw client command-string to the command object.
