@@ -11,19 +11,19 @@ import (
 	"net/textproto"
 )
 
-// Server object.
-type Server struct {
+// CommandServer object.
+type CommandServer struct {
 	player   *player.Player
 	listener *net.TCPListener
 }
 
-// New returns newly initialized Server object.
-func New(pl *player.Player) *Server {
-	return &Server{player: pl}
+// New returns newly initialized CommandServer object.
+func NewCommandServer(pl *player.Player) *CommandServer {
+	return &CommandServer{player: pl}
 }
 
 // Serve starts listening and handling incoming client connections.
-func (srv *Server) Serve(addr string, port int) error {
+func (srv *CommandServer) Serve(addr string, port int) error {
 	ip, err := resolveAddr(addr)
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func (srv *Server) Serve(addr string, port int) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Server started listening %s:%d", ip, port)
+	logger.Info("CommandServer started listening %s:%d", ip, port)
 
 	srv.listener = listener
 
@@ -53,12 +53,12 @@ func (srv *Server) Serve(addr string, port int) error {
 }
 
 // Stop stops client connections handling and shutdown the server.
-func (srv *Server) Stop() {
+func (srv *CommandServer) Stop() {
 	// TODO:
 }
 
 // handle handle one particular client connection.
-func (srv *Server) handler(conn *net.TCPConn) {
+func (srv *CommandServer) handler(conn *net.TCPConn) {
 	// This function is not threadsafe and should not modify srv object.
 	cid := conn // Client's uniq id.
 	writer := bufio.NewWriter(conn)
@@ -76,7 +76,7 @@ func (srv *Server) handler(conn *net.TCPConn) {
 		line, err := reader.ReadLine()
 		if err != nil {
 			// Connection was closed or something like that.
-			return
+			break
 		}
 
 		logger.Info("Client %d command received: '%s'.", cid, line)

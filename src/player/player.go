@@ -19,6 +19,21 @@ const (
 	statePaused
 )
 
+// State listener can be attached to the player for be notified
+// for player state change events.
+type StateListener interface {
+	// Playlist with name "name" was changed, e.g. track added or deleted.
+	PlaylistChanged(name string)
+	// Playlists list was changed (playlist was added, removed, etc).
+	PlaylistsChanged()
+	// Player's state is changed, e.g player was paused or stopped.
+	StateChanged() // TODO: Add new state parameter.
+	// Current playing track was changed.
+	TrackChanged() // TODO: Add new track parameter.
+	// Volume level changed.
+	VolumeChanged() // TODO: Add volume value parameter.
+}
+
 // Player engine object.
 type Player struct {
 	// All (user and system) playlists list.
@@ -32,6 +47,8 @@ type Player struct {
 	commandChan chan *command
 	// Playing thread, -- the core decode -> output object.
 	playingThread *playingthread.PlayingThread
+	// Listener to be notified about player state changes.
+	stateListener StateListener
 }
 
 // New returns a newly created Player object.
@@ -42,6 +59,11 @@ func New() *Player {
 	p.playlists = append(p.playlists, playlist.New(PlaylistVfs))
 
 	return p
+}
+
+// SetStateListener attaches new state listener to the player.
+func (player *Player) SetStateListener(l StateListener) {
+	player.stateListener = l
 }
 
 // Run starts Player execution.
@@ -82,6 +104,10 @@ func (player *Player) AddPlaylist(name string) error {
 	cmd := newCommand(player.commandAddPlaylist, name)
 	res := player.commandDispatcher(cmd)
 
+	if player.stateListener != nil {
+		player.stateListener.PlaylistsChanged()
+	}
+
 	return res.err
 }
 
@@ -92,6 +118,10 @@ func (player *Player) Add(name string, path *vfs.Path) error {
 	cmd := newCommand(player.commandAdd, name, path)
 	res := player.commandDispatcher(cmd)
 
+	if player.stateListener != nil {
+		player.stateListener.PlaylistChanged(name)
+	}
+
 	return res.err
 }
 
@@ -99,6 +129,10 @@ func (player *Player) Add(name string, path *vfs.Path) error {
 func (player *Player) DeletePlaylist(name string) error {
 	cmd := newCommand(player.commandDeletePlaylist, name)
 	res := player.commandDispatcher(cmd)
+
+	if player.stateListener != nil {
+		player.stateListener.PlaylistsChanged()
+	}
 
 	return res.err
 }
