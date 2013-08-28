@@ -4,7 +4,6 @@ import (
 	"../player"
 	"../vfs"
 	"bufio"
-	"strconv"
 )
 
 // Client handler object.
@@ -90,18 +89,24 @@ func (cl *clientHandler) cmdLs(dir string) {
 			case *vfs.Track:
 				track := e.(*vfs.Track)
 				tag := track.Tag
-				cl.write("Type: TRACK, ")
-				cl.write("Artist: ").write(strconv.Quote(tag.Artist)).write(", ")
-				cl.write("Album: ").write(strconv.Quote(tag.Album)).write(", ")
-				cl.write("Title: ").write(strconv.Quote(tag.Title)).write(", ")
-				cl.write("Number: ").write(strconv.Itoa(tag.Number)).write(", ")
-				cl.write("Length: ").write(strconv.Itoa(tag.Length))
+				m := map[string]interface{}{
+					"Type":   "TRACK",
+					"Artist": tag.Artist,
+					"Album":  tag.Album,
+					"Title":  tag.Title,
+					"Number": tag.Number,
+					"Length": tag.Length,
+				}
+				writeMap(cl.out, m)
 				cl.writeLn("")
 			case *vfs.Directory:
 				d := e.(*vfs.Directory)
-				cl.write("Type: DIRECTORY, ")
-				cl.write("Name: ").write(strconv.Quote(d.Name)).write(", ")
-				cl.write("Path: ").write(strconv.Quote(d.Path.String()))
+				m := map[string]interface{}{
+					"Type": "DIRECTORY",
+					"Name": d.Name,
+					"Path": d.Path.String(),
+				}
+				writeMap(cl.out, m)
 				cl.writeLn("")
 			default:
 				panic("Unsupported entry type.")
@@ -120,8 +125,11 @@ func (cl *clientHandler) cmdPlaylists() {
 	cl.ok()
 
 	for _, plist := range cl.player.Playlists() {
-		cl.write("Name: ").write(strconv.Quote(plist.Name())).write(", ")
-		cl.write("Length: ").write(strconv.Itoa(plist.Len()))
+		m := map[string]interface{}{
+			"Name":   plist.Name(),
+			"Length": plist.Len(),
+		}
+		writeMap(cl.out, m)
 		cl.writeLn("")
 	}
 }

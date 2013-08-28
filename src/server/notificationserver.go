@@ -4,6 +4,7 @@ import (
 	"../logger"
 	"bufio"
 	"net"
+	"strconv"
 	"sync"
 )
 
@@ -125,7 +126,28 @@ func (srv *NotificationServer) write(conn net.Conn, event string, params ...inte
 		return err
 	}
 
-	// TODO: Write params.
+	for i, p := range params {
+		var s string
+
+		if i == 0 {
+			s = " "
+		} else {
+			s = ", "
+		}
+
+		switch p.(type) {
+		case int:
+			s += strconv.Itoa(p.(int))
+		case string:
+			s += p.(string)
+		default:
+			panic("Unsupported parameter type.")
+		}
+
+		if _, err := out.WriteString(s); err != nil {
+			return err
+		}
+	}
 
 	_, err = out.WriteString("\n")
 	if err != nil {
