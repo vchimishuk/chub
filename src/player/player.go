@@ -130,10 +130,6 @@ func (player *Player) Add(name string, path *vfs.Path) error {
 	cmd := newCommand(player.commandAdd, name, path)
 	res := player.commandDispatcher(cmd)
 
-	if player.stateListener != nil {
-		player.stateListener.PlaylistChanged(name)
-	}
-
 	return res.err
 }
 
@@ -296,6 +292,10 @@ func (player *Player) commandAdd(args ...interface{}) *result {
 	}
 
 	player.add(plist, path)
+
+	if player.stateListener != nil {
+		player.stateListener.PlaylistChanged(name)
+	}
 
 	return newEmptyResult()
 }
