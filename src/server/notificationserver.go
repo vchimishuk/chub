@@ -139,7 +139,7 @@ func (srv *NotificationServer) write(conn net.Conn, event string, params ...inte
 		case int:
 			s += strconv.Itoa(p.(int))
 		case string:
-			s += p.(string)
+			s += strconv.Quote(p.(string))
 		default:
 			panic("Unsupported parameter type.")
 		}
