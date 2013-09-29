@@ -99,6 +99,18 @@ func (player *Player) Playlists() []*playlist.Playlist {
 	return plists
 }
 
+// Playlist returns playlist's content (list of containing tracks).
+func (player *Player) Playlist(name string) (plist *playlist.Playlist, err error) {
+	cmd := newCommand(player.commandPlaylist, name)
+	res := player.commandDispatcher(cmd)
+
+	if res.err != nil {
+		return nil, res.err
+	}
+
+	return res.args[0].(*playlist.Playlist), nil
+}
+
 // AddPlaylist creates new playlist.
 func (player *Player) AddPlaylist(name string) error {
 	cmd := newCommand(player.commandAddPlaylist, name)
@@ -227,7 +239,26 @@ func (player *Player) commandPlayPlaylist(args ...interface{}) *result {
 
 // Returns playlists list.
 func (player *Player) commandPlaylists(args ...interface{}) *result {
+	// TODO: playlists should be copied.
 	return newResult(player.playlists)
+}
+
+// Returns playlist content.
+func (player *Player) commandPlaylist(args ...interface{}) *result {
+	name := args[0].(string)
+
+	plist, err := player.playlistByName(name)
+	if err != nil {
+		return newErrorResult(err)
+	}
+
+	if plist == player.currentPlaylist {
+		plist.Lock()
+		defer plist.Unlock()
+	}
+
+	// TODO: Tracks list should be copied.
+	return newResult(plist)
 }
 
 // Creates new empty playlist with give name. Playlist name should be unique,
@@ -348,5 +379,5 @@ func (player *Player) playlistByName(name string) (pl *playlist.Playlist, err er
 		}
 	}
 
-	return nil, fmt.Errorf("Playlist %s not found.", name)
+	return nil, fmt.Errorf("Playlist %s does not exist.", name)
 }

@@ -43,6 +43,9 @@ func (cl *clientHandler) HandleCommand(cmd *command) bool {
 		cl.cmdPing()
 	case cmdPlaylists:
 		cl.cmdPlaylists()
+	case cmdPlaylist:
+		name := cmd.args[0].(string)
+		cl.cmdPlaylist(name)
 	case cmdQuit:
 		cl.cmdQuit()
 		quit = true
@@ -131,6 +134,29 @@ func (cl *clientHandler) cmdPlaylists() {
 		}
 		writeMap(cl.out, m)
 		cl.writeLn("")
+	}
+}
+
+// PLAYLIST client command handler.
+func (cl *clientHandler) cmdPlaylist(name string) {
+	plist, err := cl.player.Playlist(name)
+
+	if err != nil {
+		cl.WriteError(err.Error())
+	} else {
+		cl.ok()
+
+		for i := 0; i < plist.Len(); i++ {
+			track := plist.Get(i)
+			m := map[string]interface{}{
+				"Path":   track.Path.String(),
+				"Artist": track.Tag.Artist,
+				"Album":  track.Tag.Album,
+				"Title":  track.Tag.Title,
+			}
+			writeMap(cl.out, m)
+			cl.writeLn("")
+		}
 	}
 }
 

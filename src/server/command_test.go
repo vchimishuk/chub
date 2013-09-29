@@ -10,6 +10,7 @@ var passTests = []string{
 	"ADDPLAYLIST Name",
 	"LS /",
 	"PING",
+	"PLAYLIST foo",
 	"PLAYLISTS",
 	"QUIT",
 	"QUIT ",
@@ -26,6 +27,8 @@ var failTests = []string{
 	"LS",
 	"LS foo bar",
 	"PING foo",
+	"PLAYLIST",
+	"PLAYLIST foo bar",
 	"PLAYLISTS 1",
 	"UNEXISTING_COMMAND",
 }

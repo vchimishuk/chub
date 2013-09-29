@@ -19,6 +19,7 @@ const (
 	cmdAddPlaylist = "ADDPLAYLIST"
 	cmdLs          = "LS"
 	cmdPing        = "PING"
+	cmdPlaylist    = "PLAYLIST"
 	cmdPlaylists   = "PLAYLISTS"
 	cmdQuit        = "QUIT"
 )
@@ -50,6 +51,8 @@ var commandArguments = map[string][]argumentType{
 	cmdLs: []argumentType{argumentTypeString},
 	// Args:
 	cmdPing: []argumentType{},
+	// Args: playlist name.
+	cmdPlaylist: []argumentType{argumentTypeString},
 	// Args:
 	cmdPlaylists: []argumentType{},
 	// Args:
