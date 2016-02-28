@@ -1,3 +1,20 @@
+// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+//
+// This file is part of Chub.
+//
+// Chub is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Chub is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Chub.  If not, see <http://www.gnu.org/licenses/>.
+
 // libvorbis is a libvorbis Go wrapper.
 package libvorbis
 
@@ -22,7 +39,7 @@ const (
 	BigEndian    = 1
 )
 
-// The File structure defines an Ogg Vorbis file. 
+// The File structure defines an Ogg Vorbis file.
 type File struct {
 	cOggFile C.OggVorbis_File
 	// Specifies big or little endian byte packing.
@@ -34,7 +51,7 @@ type File struct {
 }
 
 // New is the simplest function used to open and initialize an File structure.
-// It sets up all the related decoding structure. 
+// It sets up all the related decoding structure.
 func New(filename string) (file *File, err error) {
 	cFilename := C.CString(filename)
 	defer C.free(unsafe.Pointer(cFilename))
@@ -89,7 +106,7 @@ func (file *File) TimeTotal() float64 {
 	return float64(C.ov_time_total(&(file.cOggFile), -1))
 }
 
-// TimeTell returns the current decoding offset in seconds. 
+// TimeTell returns the current decoding offset in seconds.
 func (file *File) TimeTell() float64 {
 	return float64(C.ov_time_tell(&(file.cOggFile)))
 }
