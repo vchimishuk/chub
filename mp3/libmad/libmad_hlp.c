@@ -1,7 +1,5 @@
-#include "libmad_hlp.h"
-
 #include <stdio.h>
-
+#include "libmad_hlp.h"
 
 /*
  * Convert a fixed point sample to a short.

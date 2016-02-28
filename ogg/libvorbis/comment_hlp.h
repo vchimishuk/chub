@@ -1,5 +1,5 @@
-#ifndef CHUB_COMMENT_HLP_H
-#define CHUB_COMMENT_HLP_H
+#ifndef COMMENT_HLP_H
+#define COMMENT_HLP_H
 
 #include <vorbis/codec.h>
 #include <vorbis/vorbisfile.h>
@@ -11,4 +11,4 @@
  */
 char *comment_hlp_get_user_comment(const vorbis_comment *comment, int i);
 
-#endif // CHUB_COMMENT_HLP_H
+#endif // COMMENT_HLP_H

@@ -1,3 +1,6 @@
+#ifndef MAD_HLP_H
+#define MAD_HLP_H
+
 #include <stdio.h>
 #include <stdint.h>
 #include <limits.h>
@@ -47,3 +50,5 @@ size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len);
  * Close MAD decoder and free all related resources.
  */
 void gomad_close(struct gomad_decoder *decoder);
+
+#endif // MAD_HLP_H

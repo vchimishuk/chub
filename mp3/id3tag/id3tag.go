@@ -39,7 +39,7 @@ func Parse(filename string) (tag Tag, err error) {
 	tag = Tag{frames: make(map[string]string)}
 
 	// Parse all frames.
-	for i := _Ctype_uint(0); i < cTag.nframes; i++ {
+	for i := C.uint(0); i < cTag.nframes; i++ {
 		cFrame := C.id3_hlp_get_tag_frame(cTag, i)
 		cId := C.id3_hlp_get_frame_id(cFrame)
 		// XXX: As I understood cId memory will be GCed with id

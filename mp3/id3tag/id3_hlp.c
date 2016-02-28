@@ -2,7 +2,8 @@
 #include "id3_hlp.h"
 
 
-struct id3_frame *id3_hlp_get_tag_frame(struct id3_tag *tag, unsigned int frame_num)
+struct id3_frame *id3_hlp_get_tag_frame(struct id3_tag *tag,
+                                        unsigned int frame_num)
 {
         if (frame_num >= tag->nframes) {
                 return NULL;
@@ -28,7 +29,7 @@ char *id3_hlp_get_frame_string(struct id3_frame *frame)
         if (id3_field_getnstrings(&frame->fields[1]) != 0) {
                 str = (char *) id3_field_getstrings(&frame->fields[1], 0);
                 if (str != NULL) {
-                        str = (char *) id3_ucs4_utf8duplicate((id3_ucs4_t const *) str);
+                        str = id3_ucs4_utf8duplicate((id3_ucs4_t const *) str);
                 }
         }
 
