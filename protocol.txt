@@ -1,0 +1,61 @@
+// Show directory contents.
+LS "/Heavy Metal/Doro"
+
+// Show playlists list.
+PLAYLISTS_LIST
+
+// Show playlist info: size, duration, etc.
+PLAYLIST_INFO name
+
+// Show playlist tracks list.
+PLAYLIST_LIST name
+
+// Delete playlist.
+PLAYLIST_DELETE name
+
+// Create new playlist.
+PLAYLIST_CREATE name
+
+// Add path to the playlist.
+PLAYLIST_APPEND name path
+
+// Remove tracks from the playlist.
+PLAYLIST_REMOVE name index|range
+
+// Remove all tracks from the playlist.
+PLAYLIST_CLEAR name
+
+PLAYLIST_PLAY name N
+
+STOP
+
+// Play track from VFS.
+PLAY path
+
+// Toggle or set paused state.
+PAUSE [on|off]
+
+// Set/Inc/Dec volume.
+VOLUME [[-|+]0..100]
+
+// Play next track.
+NEXT
+
+// Play previous track.
+PREV
+
+FORWARD sec
+
+BACKWARD sec
+
+// Set or toggle repeat mode.
+REPEAT [on|off]
+
+// Show player state: volume, playback status, repeat, etc.
+STATE
+
+// Disconnect.
+QUIT
+
+// Halt player.
+KILL

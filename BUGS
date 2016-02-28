@@ -1,0 +1,18 @@
+* Extra empty line after error response.
+
+LS foo
+ERR
+stat /home/viacheslav/projects/chubd_music/MP3/foo: no such file or directory
+
+
+QUIT
+
+
+* LS error response must returns chrotted path, but not OS one.
+
+LS foo
+ERR
+stat /home/viacheslav/projects/chubd_music/MP3/foo: no such file or directory
+
+
+QUIT

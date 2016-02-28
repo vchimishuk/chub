@@ -1,0 +1,14 @@
+* TagReader refactoring
+
+
+
+
+
+* Add protocol and remote client commands handling.
+* Partial files support.
+* Test/implement OGG support.
+* Flac decoder.
+
+
+// Near future.
+* ogg/libvorbis: clear Makefile and rename ogg.go to libvorbis.go
