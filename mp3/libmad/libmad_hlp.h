@@ -31,22 +31,22 @@
  * MAD decoder wrapper structure.
  */
 struct gomad_decoder {
-	/* Sample rate of the stream. */
-	int sample_rate;
-	/* Number of channels in the stream. */
-	int channels;
-	/* Length of the file in seconds. */
-	int length;
-	/* Current decoding position in seconds. */
-	int current_position;
-	FILE *file;
-	int current_sample;
-	struct mad_stream stream;
-	struct mad_frame frame;
-	struct mad_header header;
-	struct mad_synth synth;
-	mad_timer_t timer;
-	unsigned char buf[BUFFER_SIZE + MAD_BUFFER_GUARD];
+    /* Sample rate of the stream. */
+    int sample_rate;
+    /* Number of channels in the stream. */
+    int channels;
+    /* Length of the file in seconds. */
+    int length;
+    /* Current decoding position in seconds. */
+    int current_position;
+    FILE *file;
+    int current_sample;
+    struct mad_stream stream;
+    struct mad_frame frame;
+    struct mad_header header;
+    struct mad_synth synth;
+    mad_timer_t timer;
+    unsigned char buf[BUFFER_SIZE + MAD_BUFFER_GUARD];
 };
 
 

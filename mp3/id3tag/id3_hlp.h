@@ -24,7 +24,7 @@
  * Returns tag's frame by given frame number.
  */
 struct id3_frame *id3_hlp_get_tag_frame(struct id3_tag *tag,
-                                        unsigned int frame_num);
+    unsigned int frame_num);
 
 /*
  * Returns frame's ID string.

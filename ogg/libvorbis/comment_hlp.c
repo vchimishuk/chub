@@ -15,16 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub.  If not, see <http://www.gnu.org/licenses/>.
 
-// TODO: Add #ifndef for all *.h files in the project.
-
 #include <stdlib.h>
 #include "comment_hlp.h"
 
 char *comment_hlp_get_user_comment(const vorbis_comment *comment, int i)
 {
-        if (i < 0 || i >= comment->comments) {
-                return NULL;
-        }
+    if (i < 0 || i >= comment->comments) {
+        return NULL;
+    }
 
-        return comment->user_comments[i];
+    return comment->user_comments[i];
 }
