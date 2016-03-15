@@ -28,7 +28,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vchimishuk/chub/config"
 	"github.com/vchimishuk/chub/cue"
 )
 
@@ -42,8 +41,22 @@ type Path struct {
 	dir  bool
 }
 
+var root string = "/"
+
+func SetRoot(dir string) error {
+	d, err := isDir(dir)
+	if err != nil {
+		return err
+	}
+	if !d {
+		return errors.New("not a directory")
+	}
+	root = dir
+
+	return nil
+}
+
 func NewPath(p string) (*Path, error) {
-	root := config.StringOr("vfs.root", "/")
 	fp := fullPath(root, p)
 	dir, err := isDir(fp)
 	if err != nil {
@@ -89,11 +102,8 @@ func (p *Path) Track() (*Track, error) {
 	if p.IsDir() {
 		return nil, fmt.Errorf("'%s' is not track", p)
 	}
-	if format(p.Ext()) == nil {
-		return nil, errors.New("not supported audio file")
-	}
 
-	return newTrack(p), nil
+	return newTrack(p)
 }
 
 func (p *Path) Child(name string) (*Path, error) {
@@ -294,11 +304,10 @@ func cueSheetTracks(base *Path, sheet *cue.Sheet) ([]Entry, error) {
 	return tracks, nil
 }
 
-func newTrack(p *Path) *Track {
+func newTrack(p *Path) (*Track, error) {
 	f := format(p.Ext())
 	if f == nil {
-		// Format guaranteed to be supported here.
-		panic("unsupported format")
+		return nil, errors.New("unsupported format")
 	}
 
 	tag, err := f.Tag(p.Full())
@@ -312,7 +321,7 @@ func newTrack(p *Path) *Track {
 		}
 	}
 
-	return &Track{Path: p, Tag: tag, Length: f.Length(p.Full())}
+	return &Track{Path: p, Tag: tag, Length: f.Length(p.Full())}, nil
 }
 
 func isDir(p string) (bool, error) {
@@ -328,7 +337,7 @@ func fullPath(root string, p string) string {
 	fp := path.Join(root, filepath.Clean(p))
 
 	// Be sure that we have not escaped from the root.
-	if !strings.HasPrefix(p, root) {
+	if !strings.HasPrefix(fp, root) {
 		fp = root
 	}
 
