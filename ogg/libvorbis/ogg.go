@@ -44,7 +44,8 @@ type File struct {
 	cOggFile C.OggVorbis_File
 	// Specifies big or little endian byte packing.
 	Endianness int
-	// Specifies word size. Possible arguments are 1 for 8-bit samples, or 2 or 16-bit samples. Typical value is 2.
+	// Specifies word size. Possible arguments are 1 for 8-bit samples,
+	// or 2 or 16-bit samples. Typical value is 2.
 	WordSize int
 	// Signed or unsigned data. 0 for unsigned, 1 for signed. Typically 1.
 	Signed bool
@@ -113,6 +114,9 @@ func (file *File) TimeTell() float64 {
 
 // Read returns up to the specified number of bytes of decoded PCM audio.
 // Return number of read 16-bit words.
+//
+// TODO: "Return number of read 16-bit words." must be in bytes and the
+//       same for all decoders.
 func (file *File) Read(buf []byte) int {
 	if len(buf) == 0 {
 		return 0
@@ -135,7 +139,7 @@ func (file *File) Read(buf []byte) int {
 	return int(read)
 }
 
-// Close release file  related resources.
+// Close release file related resources.
 func (file *File) Close() {
 	C.ov_clear(&(file.cOggFile))
 }
