@@ -41,7 +41,7 @@ func dirToMap(d *vfs.Dir) map[string]interface{} {
 func trackToMap(t *vfs.Track) map[string]interface{} {
 	m := map[string]interface{}{
 		"type":   "track",
-		"path":   t.Path.Val(),
+		"path":   t.Path.String(),
 		"length": t.Length,
 	}
 	if t.Tag != nil {

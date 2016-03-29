@@ -72,7 +72,7 @@ func ParseFile(filename string) (sheet *Sheet, err error) {
 
 // Parse parses cue-sheet data from reader and returns filled Sheet struct.
 func Parse(reader io.Reader) (sheet *Sheet, err error) {
-	sheet = new(Sheet)
+	sheet = &Sheet{}
 
 	rd := bufio.NewReader(reader)
 	lineNumber := 1
@@ -139,38 +139,36 @@ func parseCdTextFile(params []string, sheet *Sheet) error {
 	return nil
 }
 
+func parseFileType(t string) (FileType, error) {
+	switch t {
+	case "BINARY":
+		return FileTypeBinary, nil
+	case "MOTOROLA":
+		return FileTypeMotorola, nil
+	case "AIFF":
+		return FileTypeAiff, nil
+	case "WAVE":
+		return FileTypeWave, nil
+	case "MP3":
+		return FileTypeMp3, nil
+	default:
+		return 0, fmt.Errorf("Unsupported file type %s.", t)
+	}
+}
+
 // parseFile parsers FILE command.
 // params[0] -- fileName
 // params[1] -- fileType
 func parseFile(params []string, sheet *Sheet) error {
-	// Type parser function.
-	parseFileType := func(t string) (fileType FileType, err error) {
-		var types = map[string]FileType{
-			"BINARY":   FileTypeBinary,
-			"MOTOROLA": FileTypeMotorola,
-			"AIFF":     FileTypeAiff,
-			"WAVE":     FileTypeWave,
-			"MP3":      FileTypeMp3,
-		}
-
-		fileType, ok := types[t]
-		if !ok {
-			err = fmt.Errorf("Unsupported file type %s.", t)
-		}
-
-		return
-	}
-
 	fileType, err := parseFileType(params[1])
 	if err != nil {
 		return err
 	}
 
-	file := *new(File)
-	file.Name = params[0]
-	file.Type = fileType
-
-	sheet.Files = append(sheet.Files, file)
+	sheet.Files = append(sheet.Files, &File{
+		Name: params[0],
+		Type: fileType,
+	})
 
 	return nil
 }
@@ -252,8 +250,14 @@ func parseIndex(params []string, sheet *Sheet) error {
 		}
 	}
 
-	index := Index{Number: number, Time: Time{min, sec, frames}}
-	track.Indexes = append(track.Indexes, index)
+	track.Indexes = append(track.Indexes, &Index{
+		Number: number,
+		Time: &Time{
+			Min:    min,
+			Sec:    sec,
+			Frames: frames,
+		},
+	})
 
 	return nil
 }
@@ -313,7 +317,7 @@ func parsePostgap(params []string, sheet *Sheet) error {
 		return err
 	}
 
-	track.Postgap = Time{min, sec, frames}
+	track.Postgap = &Time{Min: min, Sec: sec, Frames: frames}
 
 	return nil
 }
@@ -334,7 +338,7 @@ func parsePregap(params []string, sheet *Sheet) error {
 		return err
 	}
 
-	track.Pregap = Time{min, sec, frames}
+	track.Pregap = &Time{Min: min, Sec: sec, Frames: frames}
 
 	return nil
 }
@@ -422,11 +426,12 @@ func parseTrack(params []string, sheet *Sheet) error {
 		return err
 	}
 
-	track := new(Track)
-	track.Number = number
-	track.DataType = dataType
+	track := &Track{
+		Number:   number,
+		DataType: dataType,
+	}
 
-	file := &sheet.Files[len(sheet.Files)-1]
+	file := sheet.Files[len(sheet.Files)-1]
 
 	// But all track numbers after the first must be sequential.
 	if len(file.Tracks) > 0 {
@@ -436,7 +441,7 @@ func parseTrack(params []string, sheet *Sheet) error {
 		}
 	}
 
-	file.Tracks = append(file.Tracks, *track)
+	file.Tracks = append(file.Tracks, track)
 
 	return nil
 }
@@ -448,7 +453,7 @@ func getCurrentFile(sheet *Sheet) *File {
 		return nil
 	}
 
-	return &sheet.Files[len(sheet.Files)-1]
+	return sheet.Files[len(sheet.Files)-1]
 }
 
 // getCurrentTrack returns current track object, which was started with last TRACK command.
@@ -463,17 +468,17 @@ func getCurrentTrack(sheet *Sheet) *Track {
 		return nil
 	}
 
-	return &file.Tracks[len(file.Tracks)-1]
+	return file.Tracks[len(file.Tracks)-1]
 }
 
 // getFileLastIndex returns last index for the given file.
 // Returns nil if file has no any indexes.
 func getFileLastIndex(file *File) *Index {
 	for i := len(file.Tracks) - 1; i >= 0; i-- {
-		track := &file.Tracks[i]
+		track := file.Tracks[i]
 
 		for j := len(track.Indexes) - 1; j >= 0; j-- {
-			return &track.Indexes[j]
+			return track.Indexes[j]
 		}
 	}
 

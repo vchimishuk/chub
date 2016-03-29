@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/vchimishuk/chub/cue"
@@ -35,10 +36,12 @@ const cueExt = "cue"
 
 // Path type is a immutable Virtual File System path representation.
 type Path struct {
-	root string
-	val  string
-	full string
-	dir  bool
+	root    string
+	val     string
+	full    string
+	dir     bool
+	part    bool
+	partNum int
 }
 
 var root string = "/"
@@ -57,13 +60,21 @@ func SetRoot(dir string) error {
 }
 
 func NewPath(p string) (*Path, error) {
-	fp := fullPath(root, p)
+	pp, n := splitPath(p)
+	fp := fullPath(root, pp)
 	dir, err := isDir(fp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Path{root: root, full: fp, val: p, dir: dir}, nil
+	return &Path{
+		root:    root,
+		full:    fp,
+		val:     pp,
+		dir:     dir,
+		part:    n >= 0,
+		partNum: n,
+	}, nil
 }
 
 func (p *Path) Val() string {
@@ -87,7 +98,11 @@ func (p *Path) IsDir() bool {
 }
 
 func (p *Path) String() string {
-	return p.val
+	if p.part {
+		return p.val + ":" + strconv.Itoa(p.partNum)
+	} else {
+		return p.val
+	}
 }
 
 func (p *Path) Dir() (*Dir, error) {
@@ -108,6 +123,10 @@ func (p *Path) Track() (*Track, error) {
 
 func (p *Path) Child(name string) (*Path, error) {
 	return NewPath(path.Join(p.Val(), name))
+}
+
+func (p *Path) ChildPart(name string, number int) (*Path, error) {
+	return NewPath(path.Join(p.Val(), name) + ":" + strconv.Itoa(number))
 }
 
 // List returns current directory contents sorted.
@@ -264,44 +283,79 @@ func readTracks(p *Path) ([]Entry, error) {
 }
 
 func cueSheetTracks(base *Path, sheet *cue.Sheet) ([]Entry, error) {
-	tracks := make([]Entry, 0, len(sheet.Files))
+	tracks := make([]Entry, 0)
 
-	for _, file := range sheet.Files {
-		ext := ext(file.Name)
-		if format(ext) == nil {
+	for fileNum, file := range sheet.Files {
+		f := format(ext(file.Name))
+		if f == nil {
 			continue
 		}
 
-		p, err := base.Child(file.Name)
-		if err != nil {
-			return nil, err
-		}
-
 		for _, track := range file.Tracks {
-			tag := &Tag{}
-			if len(track.Performer) > 0 {
-				tag.Artist = track.Performer
-			} else {
-				tag.Artist = sheet.Performer
+			t, err := cueSheetFileTrack(base, sheet,
+				fileNum, track.Number)
+			if err == nil {
+				tracks = append(tracks, t)
 			}
-			tag.Album = sheet.Title
-			tag.Title = track.Title
-			tag.Number = track.Number
-
-			t := &Track{}
-			t.Path = p
-			t.Tag = tag
-			t.Length = 0
-			t.Part = true
-			t.Start = 0 // TODO:
-			t.End = 0   // TODO:
-
-			tracks = append(tracks, t)
 		}
-
 	}
 
 	return tracks, nil
+}
+
+func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Track, error) {
+	if file >= len(sheet.Files) {
+		return nil, errors.New("CUE FILE not found")
+	}
+	f := sheet.Files[file]
+
+	var t *cue.Track
+	var ti int
+	for i := range f.Tracks {
+		if f.Tracks[i].Number == track {
+			t, ti = f.Tracks[i], i
+			break
+		}
+	}
+	if t == nil {
+		return nil, errors.New("CUE TRACK not found")
+	}
+	pth, err := base.ChildPart(f.Name, track)
+	if err != nil {
+		return nil, err
+	}
+
+	i := startIndex(t.Indexes)
+	if i == nil {
+		return nil, errors.New("CUE start INDEX not found")
+	}
+
+	var start int = i.Time.Seconds()
+	var end int
+
+	if ti < len(f.Tracks)-1 {
+		ii := startIndex(f.Tracks[ti+1].Indexes)
+		if ii == nil {
+			return nil, errors.New("CUE start INDEX not found")
+		}
+		end = ii.Time.Seconds()
+	} else {
+		format := format(ext(f.Name))
+		if format == nil {
+			return nil, errors.New("unsupported format")
+		}
+		end = format.Length(pth.Full())
+	}
+
+	return &Track{
+		Path:   pth,
+		Tag:    newTag(sheet, t),
+		Length: end - start,
+		Part:   true,
+		Number: t.Number,
+		Start:  start,
+		End:    end,
+	}, nil
 }
 
 func newTrack(p *Path) (*Track, error) {
@@ -310,18 +364,52 @@ func newTrack(p *Path) (*Track, error) {
 		return nil, errors.New("unsupported format")
 	}
 
-	tag, err := f.Tag(p.Full())
-	if err != nil {
-		// TODO: Fill tag based on file name?
-		tag = &Tag{
-			Artist: "",
-			Album:  "",
-			Title:  "",
-			Number: 0,
+	if p.part {
+		sheet, err := cueSheetForFile(p)
+		// Without CUE information we do not know where track
+		// starts and ends, so there is no chance to play it.
+		if err != nil {
+			return nil, err
 		}
-	}
+		if sheet == nil {
+			return nil, errors.New("CUE sheet not found")
+		}
+		for fn, file := range sheet.Files {
+			if file.Name == p.Base() {
+				for _, track := range file.Tracks {
+					if track.Number == p.partNum {
+						base, err := p.Parent()
+						if err != nil {
+							return nil, err
+						}
 
-	return &Track{Path: p, Tag: tag, Length: f.Length(p.Full())}, nil
+						return cueSheetFileTrack(base,
+							sheet, fn, track.Number)
+					}
+				}
+			}
+		}
+
+		return nil, errors.New("track not found")
+	} else {
+		var err error
+
+		tag, err := f.Tag(p.Full())
+		if err != nil {
+			tag = &Tag{
+				Artist: "",
+				Album:  "",
+				Title:  p.Base(),
+				Number: 0,
+			}
+		}
+
+		return &Track{
+			Path:   p,
+			Tag:    tag,
+			Length: f.Length(p.Full()),
+		}, nil
+	}
 }
 
 func isDir(p string) (bool, error) {
@@ -357,4 +445,90 @@ func ext(p string) string {
 	}
 
 	return ext
+}
+
+// startIndex returns Index with number 1, which stands for
+// the track start position.
+func startIndex(indexes []*cue.Index) *cue.Index {
+	for _, i := range indexes {
+		if i.Number == 1 {
+			return i
+		}
+	}
+
+	return nil
+}
+
+// splitPath splits given VFS path in format FILENAME:TRACK_NUMBER
+// to filename and track number parts. Returns -1 as track number
+// value if path doesn't represent partial track path.
+func splitPath(p string) (string, int) {
+	if i := strings.LastIndex(p, ":"); i >= 0 {
+		pp := p[0:i]
+		n, err := strconv.Atoi(p[i+1:])
+		if err != nil || n < 0 {
+			return p, -1
+		}
+
+		return pp, n
+	} else {
+		return p, -1
+	}
+}
+
+// cueSheetForFile returns parsed CUE file for the given audio file.
+// Example. Given a FLAC file path it returns a CUE sheet found in the
+// same directory which describes the FLAC file.
+func cueSheetForFile(p *Path) (*cue.Sheet, error) {
+	base := p.Base()
+	parent, err := p.Parent()
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(parent.Full())
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	names, err := file.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, name := range names {
+		if ext(name) == cueExt {
+			child, err := parent.Child(name)
+			if err != nil {
+				continue
+			}
+			sheet, err := cue.ParseFile(child.Full())
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range sheet.Files {
+				if f.Name == base {
+					return sheet, nil
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func newTag(sheet *cue.Sheet, track *cue.Track) *Tag {
+	tag := &Tag{
+		Album:  sheet.Title,
+		Title:  track.Title,
+		Number: track.Number,
+	}
+
+	if len(track.Performer) > 0 {
+		tag.Artist = track.Performer
+	} else {
+		tag.Artist = sheet.Performer
+	}
+
+	return tag
 }

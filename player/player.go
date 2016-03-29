@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vchimishuk/chub/audio"
 	"github.com/vchimishuk/chub/vfs"
 )
 
@@ -53,10 +52,10 @@ type Player struct {
 	curPlist *Playlist
 	msgChan  chan *message
 	decoders map[string]func() Decoder
-	output   audio.Output
+	output   Output
 }
 
-func New(fmts []Format, output audio.Output) *Player {
+func New(fmts []Format, output Output) *Player {
 	decoders := make(map[string]func() Decoder)
 	for _, f := range fmts {
 		for _, ext := range f.Extensions() {
@@ -65,6 +64,7 @@ func New(fmts []Format, output audio.Output) *Player {
 	}
 
 	p := &Player{
+		plists:   make(map[string]*Playlist),
 		vfsPlist: NewPlaylist(vfsPlaylistName),
 		msgChan:  make(chan *message),
 		decoders: decoders,
@@ -266,7 +266,7 @@ func (p *Player) run() {
 	var st state = stateStopped
 	var quit bool = false
 
-	startBufAvailableChecker := func(output audio.Output) chan bool {
+	startBufAvailableChecker := func(output Output) chan bool {
 		ch := make(chan bool)
 		go bufAvailableChecker(output, ch)
 		return ch
@@ -428,7 +428,7 @@ func (p *Player) decoder(path *vfs.Path) Decoder {
 // buffAvailableChecker monitors output buffer and signals via the given
 // channel when there is some free space available in the buffer, so player
 // can decode next piece of audio data and write it into the buffer.
-func bufAvailableChecker(output audio.Output, ch chan bool) {
+func bufAvailableChecker(output Output, ch chan bool) {
 	fmt.Println("bufAvailableChecker(): started")
 
 	for {

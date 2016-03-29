@@ -72,6 +72,8 @@ type Track struct {
 	// and this track points only to one song in this FLAC file (which is
 	// album itself).
 	Part bool
+	// Track number as in CUE file.
+	Number int
 	// Track beginning in the physical file.
 	Start int
 	// Track end position in the physical file.

@@ -32,7 +32,7 @@ type Sheet struct {
 	// Name of the file that contains the encoded CD-TEXT information for the disc.
 	CdTextFile string
 	// Data/audio files descibed byt the cue-file.
-	Files []File
+	Files []*File
 }
 
 // Type of the audio file.
@@ -93,7 +93,7 @@ type Index struct {
 	// Index number.
 	Number int
 	// Index starting time.
-	Time Time
+	Time *Time
 }
 
 // Additional decode information about track.
@@ -126,11 +126,11 @@ type Track struct {
 	// Internetional Standaard Recording Code.
 	Isrc string
 	// Track indexes.
-	Indexes []Index
+	Indexes []*Index
 	// Length of the track pregap.
-	Pregap Time
+	Pregap *Time
 	// Length of the track postgap.
-	Postgap Time
+	Postgap *Time
 }
 
 // Audio file representation structure.
@@ -140,5 +140,5 @@ type File struct {
 	// Type of the audio file.
 	Type FileType
 	// List of present tracks in the file.
-	Tracks []Track
+	Tracks []*Track
 }
