@@ -17,34 +17,53 @@
 
 package mp3
 
-import "github.com/vchimishuk/chub/mp3/libmad"
+// #cgo LDFLAGS: -lm -lmad
+// #include <stdlib.h>
+// #include "mp3.h"
+import "C"
 
-// mp3 decoder implementation.
+import (
+	"errors"
+	"unsafe"
+)
+
 type Decoder struct {
-	mad *libmad.Decoder
+	cDecoder *C.struct_mp3_decoder
 }
 
 func NewDecoder() *Decoder {
-	return new(Decoder)
+	return &Decoder{}
 }
 
 func (d *Decoder) Open(file string) error {
-	mad, err := libmad.New(file)
-	if err != nil {
-		return err
+	f := C.CString(file)
+	defer C.free(unsafe.Pointer(f))
+
+	d.cDecoder = C.mp3_open(f)
+	if d.cDecoder == nil {
+		// TODO: Return appropriate erros. E.g. "no such file" from C.
+		return errors.New("mp3_open() failed")
 	}
-	d.mad = mad
 
 	return nil
 }
 
-func (d *Decoder) Read(buf []byte) (read int, err error) {
-	// TODO: Maybe improve libmad to return error with Read.
-	read = d.mad.Read(buf)
+func (d *Decoder) Length() int {
+	return int(d.cDecoder.length)
+}
 
-	return read, nil
+func (d *Decoder) Read(buf []byte) (read int, err error) {
+	bp := (*_Ctype_char)(unsafe.Pointer(&buf[0]))
+	len := (C.size_t)(len(buf))
+
+	// TODO: Error handling.
+	return int(C.mp3_decode(d.cDecoder, bp, len)), nil
+}
+
+func (d *Decoder) Time() int {
+	return int(d.cDecoder.current_position)
 }
 
 func (d *Decoder) Close() {
-	d.mad.Close()
+	C.mp3_close(d.cDecoder)
 }

@@ -15,46 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <stdlib.h>
 #include <stdio.h>
-#include "libmad_hlp.h"
-
-/*
- * Convert a fixed point sample to a short.
- */
-static inline int16_t gomad_fixed_to_short(mad_fixed_t fixed)
-{
-    if (fixed >= MAD_F_ONE) {
-        return SHRT_MAX;
-    } else if (fixed <= -MAD_F_ONE) {
-        return -SHRT_MAX;
-    }
-    return fixed >> (MAD_F_FRACBITS - 15);
-}
-
-
-/*
- * Reinitialize decoder, so file will be decoded from the beginning.
- */
-static void gomad_rewind(struct gomad_decoder *decoder)
-{
-    rewind(decoder->file);
-
-    decoder->current_position = 0;
-    decoder->current_sample = 0;
-
-    mad_stream_init(&decoder->stream);
-    mad_frame_init(&decoder->frame);
-    mad_header_init(&decoder->header);
-    mad_synth_init(&decoder->synth);
-    mad_timer_reset(&decoder->timer);
-}
-
+#include <stdint.h>
+#include <limits.h>
+#include <string.h>
+#include "mp3.h"
 
 /*
  * Fill buffer with new data from input file.
  * Returns size of actual data in the buffer.
  */
-static size_t gomad_fill_buffer(struct gomad_decoder *decoder)
+static size_t mp3_fill_buffer(struct mp3_decoder *decoder)
 {
     size_t offset;
     size_t free_size;
@@ -95,18 +67,17 @@ static size_t gomad_fill_buffer(struct gomad_decoder *decoder)
     return offset + read_len;
 }
 
-
 /*
  * Decode frame.
  * Returns -1 on error.
  */
-static int gomad_read_frame(struct gomad_decoder *decoder)
+static int mp3_read_frame(struct mp3_decoder *decoder)
 {
     size_t data_size;
 
     for (; ;) {
         if (decoder->stream.buffer == NULL || decoder->stream.error == MAD_ERROR_BUFLEN) {
-            data_size = gomad_fill_buffer(decoder);
+            data_size = mp3_fill_buffer(decoder);
             if (data_size <= 0) {
                 return -1;
             }
@@ -128,11 +99,27 @@ static int gomad_read_frame(struct gomad_decoder *decoder)
     }
 }
 
+/*
+ * Reinitialize decoder, so file will be decoded from the beginning.
+ */
+static void mp3_rewind(struct mp3_decoder *decoder)
+{
+    rewind(decoder->file);
+
+    decoder->current_position = 0;
+    decoder->current_sample = 0;
+
+    mad_stream_init(&decoder->stream);
+    mad_frame_init(&decoder->frame);
+    mad_header_init(&decoder->header);
+    mad_synth_init(&decoder->synth);
+    mad_timer_reset(&decoder->timer);
+}
 
 /*
  * Calculate and returns length of the file in seconds.
  */
-static void gomad_fill_info(struct gomad_decoder *decoder)
+static void mp3_fill_info(struct mp3_decoder *decoder)
 {
     /*
      * There are three ways of calculating the length of an mp3:
@@ -160,10 +147,10 @@ static void gomad_fill_info(struct gomad_decoder *decoder)
     int first_frame = 1;
 
     do {
-        if (gomad_read_frame(decoder) != 0) {
+        if (mp3_read_frame(decoder) != 0) {
             decoder->length = decoder->timer.seconds;
             offset = ftello(decoder->file);
-            gomad_rewind(decoder);
+            mp3_rewind(decoder);
 
             return;
         }
@@ -184,26 +171,46 @@ static void gomad_fill_info(struct gomad_decoder *decoder)
 
     decoder->length = ((double) total / offset) * decoder->timer.seconds;
 
-    gomad_rewind(decoder);
+    mp3_rewind(decoder);
 
     return;
 }
 
-
-int gomad_open(struct gomad_decoder *decoder, const char *filename)
+/*
+ * Convert a fixed point sample to a short.
+ */
+static inline int16_t mp3_fixed_to_short(mad_fixed_t fixed)
 {
-    decoder->file = fopen(filename, "r");
-    if (decoder->file == NULL) {
-        return -1;
+    if (fixed >= MAD_F_ONE) {
+        return SHRT_MAX;
+    } else if (fixed <= -MAD_F_ONE) {
+        return -SHRT_MAX;
     }
-
-    gomad_rewind(decoder);
-    gomad_fill_info(decoder);
-
-    return 0;
+    return fixed >> (MAD_F_FRACBITS - 15);
 }
 
-size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len)
+struct mp3_decoder *mp3_open(const char *filename)
+{
+    struct mp3_decoder *d = malloc(sizeof(struct mp3_decoder));
+
+    if (d == NULL) {
+        return NULL;
+    }
+
+    d->file = fopen(filename, "r");
+    if (d->file == NULL) {
+        free(d);
+
+        return NULL;
+    }
+
+    mp3_rewind(d);
+    mp3_fill_info(d);
+
+    return d;
+}
+
+size_t mp3_decode(struct mp3_decoder *decoder, char *buf, size_t len)
 {
     int16_t *words_buf = (int16_t *)buf;
     size_t words_len = len / 2;
@@ -213,7 +220,7 @@ size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len)
 
     do {
         if (decoder->current_sample == 0) {
-            if (gomad_read_frame(decoder) == -1) {
+            if (mp3_read_frame(decoder) == -1) {
                 return written * 2;
             }
             if (mad_frame_decode(&decoder->frame, &decoder->stream) == -1) {
@@ -228,14 +235,14 @@ size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len)
 
         while ((decoder->current_sample < decoder->synth.pcm.length) && (written < words_len)) {
             for (i = 0; i < MAD_NCHANNELS(&decoder->frame.header); i++) {
-                words_buf[written++] = gomad_fixed_to_short(decoder->synth.pcm.samples[i][decoder->current_sample]);
+                words_buf[written++] = mp3_fixed_to_short(decoder->synth.pcm.samples[i][decoder->current_sample]);
 
             }
 
             decoder->current_sample++;
         }
 
-        // Move to the next frame.
+        /* Move to the next frame. */
         if (decoder->current_sample == decoder->synth.pcm.length) {
             decoder->current_sample = 0;
         }
@@ -244,12 +251,12 @@ size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len)
     return written * 2;
 }
 
-
-void gomad_close(struct gomad_decoder *decoder)
+void mp3_close(struct mp3_decoder *decoder)
 {
     mad_frame_finish(&decoder->frame);
     mad_stream_finish(&decoder->stream);
     mad_synth_finish(&decoder->synth);
 
     fclose(decoder->file);
+    free(decoder);
 }

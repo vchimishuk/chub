@@ -15,22 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef MAD_HLP_H
-#define MAD_HLP_H
+#ifndef MP3_H
+#define MP3_H
 
 #include <stdio.h>
-#include <stdint.h>
-#include <limits.h>
-#include <string.h>
 #include <mad.h>
 
 /* Size of the read buffer. */
 #define BUFFER_SIZE (5 * 8192)
 
-/*
- * MAD decoder wrapper structure.
- */
-struct gomad_decoder {
+struct mp3_decoder {
     /* Sample rate of the stream. */
     int sample_rate;
     /* Number of channels in the stream. */
@@ -49,23 +43,9 @@ struct gomad_decoder {
     unsigned char buf[BUFFER_SIZE + MAD_BUFFER_GUARD];
 };
 
-
-/*
- * Initialize MAD decoder.
- * Returns -1 on failure.
- */
-int gomad_open(struct gomad_decoder *decoder, const char *filename);
+struct mp3_decoder *mp3_open(const char *filename);
+size_t mp3_decode(struct mp3_decoder *decoder, char *buf, size_t len);
+void mp3_close(struct mp3_decoder *decoder);
 
 
-/*
- * Read and decode len bytes form input file.
- */
-size_t gomad_read(struct gomad_decoder *decoder, char *buf, size_t len);
-
-
-/*
- * Close MAD decoder and free all related resources.
- */
-void gomad_close(struct gomad_decoder *decoder);
-
-#endif // MAD_HLP_H
+#endif // MP3_H

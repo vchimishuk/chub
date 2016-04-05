@@ -103,7 +103,7 @@ func (p *Player) Play(path *vfs.Path) error {
 			// Find position to start.
 			if path.IsDir() && pos == -1 {
 				pos = 0
-			} else if pos == -1 && &path == &t.Path {
+			} else if pos == -1 && *path == *t.Path {
 				pos = i
 			}
 			p.vfsPlist.Append(t)
@@ -325,7 +325,6 @@ func (p *Player) run() {
 				plist = cloneTracks(msg.args[0].([]*vfs.Track))
 				pos = msg.args[1].(int)
 
-				fmt.Println("pt.run(): cmdPlay received")
 				if st != stateStopped {
 					bufAvailable <- true
 					decoder.Close()

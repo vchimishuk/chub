@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/vchimishuk/chub/mp3/id3tag"
-	"github.com/vchimishuk/chub/mp3/libmad"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/vfs"
 )
@@ -36,13 +35,14 @@ func (f format) Extensions() []string {
 }
 
 func (f format) Length(file string) int {
-	m, err := libmad.New(file)
-	if err != nil {
+	d := NewDecoder()
+	defer d.Close()
+
+	if err := d.Open(file); err != nil {
 		return 0
 	}
-	defer m.Close()
 
-	return m.Length()
+	return d.Length()
 }
 
 func (f format) Tag(file string) (*vfs.Tag, error) {

@@ -23,6 +23,8 @@ type Decoder interface {
 	Open(file string) error
 	// Read decode piece of data and returns raw PCM audio data.
 	Read(buf []byte) (read int, err error)
+	// Time returns current decoded position in seconds.
+	Time() int
 	// Close releases decoder resources.
 	Close()
 }
