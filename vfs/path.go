@@ -38,7 +38,7 @@ const cueExt = "cue"
 type Path struct {
 	root    string
 	val     string
-	full    string
+	file    string
 	dir     bool
 	part    bool
 	partNum int
@@ -61,7 +61,7 @@ func SetRoot(dir string) error {
 
 func NewPath(p string) (*Path, error) {
 	pp, n := splitPath(p)
-	fp := fullPath(root, pp)
+	fp := filePath(root, pp)
 	dir, err := isDir(fp)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func NewPath(p string) (*Path, error) {
 
 	return &Path{
 		root:    root,
-		full:    fp,
+		file:    fp,
 		val:     pp,
 		dir:     dir,
 		part:    n >= 0,
@@ -81,8 +81,8 @@ func (p *Path) Val() string {
 	return p.val
 }
 
-func (p *Path) Full() string {
-	return p.full
+func (p *Path) File() string {
+	return p.file
 }
 
 func (p *Path) Parent() (*Path, error) {
@@ -178,7 +178,7 @@ func (p *Path) Ext() string {
 // readDirs returns sorted list of all directories for the given path.
 // Parameter is garanteed to be a folder.
 func readDirs(p *Path) ([]Entry, error) {
-	file, err := os.Open(p.Full())
+	file, err := os.Open(p.File())
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func readDirs(p *Path) ([]Entry, error) {
 // readTracks returns sorted tracks list in the given directory.
 // Parameter is garanteed to be a folder.
 func readTracks(p *Path) ([]Entry, error) {
-	file, err := os.Open(p.Full())
+	file, err := os.Open(p.File())
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func readTracks(p *Path) ([]Entry, error) {
 			continue
 		}
 		if cp.Ext() == cueExt {
-			sheet, err := cue.ParseFile(cp.Full())
+			sheet, err := cue.ParseFile(cp.File())
 			if err != nil {
 				continue
 			}
@@ -344,7 +344,7 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 		if format == nil {
 			return nil, errors.New("unsupported format")
 		}
-		end = format.Length(pth.Full())
+		end = format.Length(pth.File())
 	}
 
 	return &Track{
@@ -394,7 +394,7 @@ func newTrack(p *Path) (*Track, error) {
 	} else {
 		var err error
 
-		tag, err := f.Tag(p.Full())
+		tag, err := f.Tag(p.File())
 		if err != nil {
 			tag = &Tag{
 				Artist: "",
@@ -407,7 +407,7 @@ func newTrack(p *Path) (*Track, error) {
 		return &Track{
 			Path:   p,
 			Tag:    tag,
-			Length: f.Length(p.Full()),
+			Length: f.Length(p.File()),
 		}, nil
 	}
 }
@@ -421,7 +421,7 @@ func isDir(p string) (bool, error) {
 	return fi.IsDir(), nil
 }
 
-func fullPath(root string, p string) string {
+func filePath(root string, p string) string {
 	fp := path.Join(root, filepath.Clean(p))
 
 	// Be sure that we have not escaped from the root.
@@ -485,7 +485,7 @@ func cueSheetForFile(p *Path) (*cue.Sheet, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(parent.Full())
+	file, err := os.Open(parent.File())
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +502,7 @@ func cueSheetForFile(p *Path) (*cue.Sheet, error) {
 			if err != nil {
 				continue
 			}
-			sheet, err := cue.ParseFile(child.Full())
+			sheet, err := cue.ParseFile(child.File())
 			if err != nil {
 				return nil, err
 			}

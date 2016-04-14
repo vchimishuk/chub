@@ -206,7 +206,7 @@ func (pt *playingThread) play(pos int) {
 		panic("TODO:")
 	}
 	decoder := df()
-	err := decoder.Open(pth.Full())
+	err := decoder.Open(pth.File())
 	if err != nil {
 		// TODO: Skip this track and try next one.
 		panic("TODO:")
