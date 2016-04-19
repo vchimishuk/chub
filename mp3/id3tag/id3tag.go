@@ -13,7 +13,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Chub.  If not, see <http://www.gnu.org/licenses/>.
+// along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
 // id3tag package implements ID3 tag parsing functionality.
 // Actually this is a wrapper around C libid3tag.

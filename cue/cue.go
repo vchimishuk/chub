@@ -13,7 +13,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Chub.  If not, see <http://www.gnu.org/licenses/>.
+// along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
 // Package cue implement CUE-SHEET files parser.
 // For CUE documentation see: http://digitalx.org/cue-sheet/syntax/

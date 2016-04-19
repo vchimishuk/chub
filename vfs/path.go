@@ -13,7 +13,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Chub.  If not, see <http://www.gnu.org/licenses/>.
+// along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
 // vfs package provides convenient interface over filesystem and audio files.
 // It allows navigation over multiple-track files as tracks are separate files.
