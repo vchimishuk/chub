@@ -23,6 +23,10 @@ type Decoder interface {
 	Open(file string) error
 	// Read decode piece of data and returns raw PCM audio data.
 	Read(buf []byte) (read int, err error)
+	// Seek sets new position in seconds to start decoding from. If rel
+	// parameter is set new position will be calculated as current plus
+	// pos, otherwise pos is an absolute seconds position.
+	Seek(pos int, rel bool)
 	// Time returns current decoded position in seconds.
 	Time() int
 	// Close releases decoder resources.

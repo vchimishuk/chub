@@ -119,7 +119,7 @@ func (pt *playingThread) loop() {
 				}
 			case cmdPlay:
 				pt.setPlaylist(msg.args[0].([]*vfs.Track))
-				pt.play(msg.args[1].(int))
+				pt.play(msg.args[1].(int), false)
 			case cmdQuit:
 				quit = true
 				fallthrough
@@ -144,7 +144,7 @@ func (pt *playingThread) loop() {
 					pos = pt.pos - 1
 				}
 
-				pt.play(pos)
+				pt.play(pos, false)
 			default:
 				panic("unsupported command")
 			}
@@ -170,9 +170,15 @@ func (pt *playingThread) loop() {
 			// in the same file decoder can be reused and position
 			// can be simply seeked or even noop (neighbour tracks).
 
-			read, _ := pt.decoder.Read(buf)
+			cur := pt.plist[pt.pos]
+			read := 0
+
+			if pt.decoder.Time() < cur.End {
+				read, _ = pt.decoder.Read(buf)
+				// TODO: Handle error.
+			}
 			if read == 0 {
-				pt.play(pt.pos + 1)
+				pt.play(pt.pos+1, true)
 			} else {
 				// TODO: If wrote not all data?
 				pt.output.Write(buf)
@@ -184,13 +190,14 @@ func (pt *playingThread) loop() {
 	close(pt.msgChan)
 }
 
-func (pt *playingThread) play(pos int) {
+func (pt *playingThread) play(pos int, smooth bool) {
 	if pos < 0 {
 		pos = len(pt.plist) - 1
 	} else if pos >= len(pt.plist) {
 		pos = 0
 	}
 
+	// TODO: smooth support: don't touch output on smooth transition.
 	if pt.state != stateStopped {
 		// TODO: Empty output.
 		pt.stopBufAvailableChecker()
@@ -199,17 +206,20 @@ func (pt *playingThread) play(pos int) {
 		pt.state = stateStopped
 	}
 
-	pth := pt.plist[pos].Path
-	df := pt.decoders[pth.Ext()]
+	track := pt.plist[pos]
+	df := pt.decoders[track.Path.Ext()]
 	if df == nil {
 		// TODO: Skip this track and try next one.
 		panic("TODO:")
 	}
 	decoder := df()
-	err := decoder.Open(pth.File())
+	err := decoder.Open(track.Path.File())
 	if err != nil {
 		// TODO: Skip this track and try next one.
 		panic("TODO:")
+	}
+	if track.Part {
+		decoder.Seek(track.Start, false)
 	}
 
 	// TODO: Reset hw params on track change if needed.

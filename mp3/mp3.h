@@ -32,8 +32,9 @@ struct mp3_decoder {
     /* Length of the file in seconds. */
     int length;
     /* Current decoding position in seconds. */
-    int current_position;
+    int position;
     FILE *file;
+    int file_size;
     int current_sample;
     struct mad_stream stream;
     struct mad_frame frame;
@@ -45,7 +46,7 @@ struct mp3_decoder {
 
 struct mp3_decoder *mp3_open(const char *filename);
 size_t mp3_decode(struct mp3_decoder *decoder, char *buf, size_t len);
+void mp3_seek(struct mp3_decoder *decoder, int pos, int rel);
 void mp3_close(struct mp3_decoder *decoder);
-
 
 #endif // MP3_H

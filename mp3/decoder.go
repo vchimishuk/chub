@@ -60,10 +60,22 @@ func (d *Decoder) Read(buf []byte) (read int, err error) {
 	return int(C.mp3_decode(d.cDecoder, bp, len)), nil
 }
 
+func (d *Decoder) Seek(pos int, rel bool) {
+	C.mp3_seek(d.cDecoder, C.int(pos), C.int(bool2int(rel)))
+}
+
 func (d *Decoder) Time() int {
-	return int(d.cDecoder.current_position)
+	return int(d.cDecoder.position)
 }
 
 func (d *Decoder) Close() {
 	C.mp3_close(d.cDecoder)
+}
+
+func bool2int(b bool) int {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
 }

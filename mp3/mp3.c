@@ -22,6 +22,8 @@
 #include <string.h>
 #include "mp3.h"
 
+#define CLAMP(x, l, h) (((x) > (h)) ? (h) : (((x) < (l)) ? (l) : (x)))
+
 /*
  * Fill buffer with new data from input file.
  * Returns size of actual data in the buffer.
@@ -88,7 +90,7 @@ static int mp3_read_frame(struct mp3_decoder *decoder)
 
         if (mad_header_decode(&decoder->header, &decoder->stream) == 0) {
             mad_timer_add(&decoder->timer, decoder->frame.header.duration);
-            decoder->current_position = decoder->timer.seconds;
+            decoder->position = decoder->timer.seconds;
             decoder->frame.header = decoder->header;
             return 0;
         }
@@ -106,7 +108,7 @@ static void mp3_rewind(struct mp3_decoder *decoder)
 {
     rewind(decoder->file);
 
-    decoder->current_position = 0;
+    decoder->position = 0;
     decoder->current_sample = 0;
 
     mad_stream_init(&decoder->stream);
@@ -189,6 +191,18 @@ static inline int16_t mp3_fixed_to_short(mad_fixed_t fixed)
     return fixed >> (MAD_F_FRACBITS - 15);
 }
 
+static int fsize(FILE *file)
+{
+    int pos = ftell(file);
+    int size;
+
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    fseek(file, pos, SEEK_SET);
+
+    return size;
+}
+
 struct mp3_decoder *mp3_open(const char *filename)
 {
     struct mp3_decoder *d = malloc(sizeof(struct mp3_decoder));
@@ -204,6 +218,7 @@ struct mp3_decoder *mp3_open(const char *filename)
         return NULL;
     }
 
+    d->file_size = fsize(d->file);
     mp3_rewind(d);
     mp3_fill_info(d);
 
@@ -249,6 +264,22 @@ size_t mp3_decode(struct mp3_decoder *decoder, char *buf, size_t len)
     } while (written < words_len);
 
     return written * 2;
+}
+
+void mp3_seek(struct mp3_decoder *decoder, int pos, int rel)
+{
+    if (rel) {
+        pos += decoder->position;
+    }
+
+    /* Calculate the new relative position. */
+    pos = CLAMP(pos, 0, (int) decoder->length);
+    int new_pos = ((double) pos / decoder->length) * decoder->file_size;
+
+    mp3_rewind(decoder);
+    fseek(decoder->file, new_pos, SEEK_SET);
+    decoder->timer.seconds = pos;
+    decoder->timer.fraction = 0;
 }
 
 void mp3_close(struct mp3_decoder *decoder)
