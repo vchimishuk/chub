@@ -181,7 +181,7 @@ func (pt *playingThread) loop() {
 				pt.play(pt.pos+1, true)
 			} else {
 				// TODO: If wrote not all data?
-				pt.output.Write(buf)
+				pt.output.Write(buf[:read])
 				// TODO: Log when read != wrote in debug mode.
 			}
 		}
