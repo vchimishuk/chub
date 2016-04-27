@@ -123,6 +123,21 @@ static void metadata_callback(const FLAC__StreamDecoder *fsd,
         decoder->channels = si->channels;
         decoder->sample_rate = si->sample_rate;
         decoder->len = decoder->total_samples / decoder->sample_rate;
+
+        switch (si->bits_per_sample / 8) {
+        case 1:
+            decoder->format = SFMT_S8;
+            break;
+        case 2:
+            decoder->format = SFMT_S16_LE;
+            break;
+        case 3:
+            decoder->format = SFMT_S32_LE;
+            break;
+        default:
+            decoder->format = SFMT_UNKNOWN;
+            break;
+        }
     }
 }
 
@@ -200,6 +215,7 @@ struct flac_decoder *flac_open(const char *file)
     decoder->total_samples = 0;
     decoder->buf_fill = 0;
     decoder->channels = 0;
+    decoder->format = SFMT_UNKNOWN;
     decoder->bits_per_sample = 0;
     decoder->sample_rate = 0;
     decoder->bitrate = 0;
@@ -266,21 +282,6 @@ int flac_decode(struct flac_decoder *decoder, char *buf, int len)
     FLAC__StreamDecoder *fsd = decoder->fsd;
     int bytes_per_sample = decoder->bits_per_sample / 8;
 
-    /* switch (bytes_per_sample) { */
-    /* 	case 1: */
-    /* 		params->fmt = SFMT_S8; */
-    /* 		break; */
-    /* 	case 2: */
-    /* 		params->fmt = SFMT_S16 | SFMT_LE; */
-    /* 		break; */
-    /* 	case 3: */
-    /* 		params->fmt = SFMT_S32 | SFMT_LE; */
-    /* 		break; */
-    /* } */
-
-    /* params->rate = decoder->sample_rate; */
-    /* params->channels = decoder->channels; */
-
     if (decoder->buf_fill == 0) {
         FLAC__uint64 decode_position;
 
@@ -346,6 +347,15 @@ int flac_seek(struct flac_decoder *decoder, int pos, int rel)
 int flac_time(struct flac_decoder *decoder)
 {
     return decoder->time;
+}
+
+int flac_sample_rate(struct flac_decoder *decoder)
+{
+    return decoder->sample_rate;
+}
+int flac_channels(struct flac_decoder *decoder)
+{
+    return decoder->channels;
 }
 
 int flac_length(struct flac_decoder *decoder)

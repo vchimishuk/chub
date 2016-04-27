@@ -29,6 +29,10 @@ type Decoder interface {
 	Seek(pos int, rel bool)
 	// Time returns current decoded position in seconds.
 	Time() int
+	// SampleRate returns sample rate of decoded stream.
+	SampleRate() int
+	// Channels returns number of channels in decoded stream.
+	Channels() int
 	// Close releases decoder resources.
 	Close()
 }

@@ -21,8 +21,12 @@ package player
 type Output interface {
 	// Open opens output audio device.
 	Open() error
+	// Returns current sample rate.
+	SampleRate() int
 	// Set new value for sample rate parameter.
 	SetSampleRate(rate int)
+	// Returns current channels value.
+	Channels() int
 	// Set number of channels.
 	SetChannels(channels int)
 	// Wait waits some free space in output buffer, but not more than

@@ -25,6 +25,11 @@
 #define SAMPLE_BUF_SIZE ((FLAC__MAX_BLOCK_SIZE + SAMPLES_PER_WRITE) * \
         MAX_SUPPORTED_CHANNELS * (32 / 8))
 
+#define SFMT_UNKNOWN 0
+#define SFMT_S8 1
+#define SFMT_S16_LE 2
+#define SFMT_S32_LE 4
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 struct flac_decoder {
@@ -36,6 +41,7 @@ struct flac_decoder {
     FLAC__byte buf[SAMPLE_BUF_SIZE];
     unsigned int buf_fill;
     unsigned int channels;
+    unsigned int format;
     unsigned int bits_per_sample;
     unsigned int sample_rate;
     int bitrate;
@@ -61,6 +67,8 @@ void flac_close(struct flac_decoder *decoder);
 int flac_decode(struct flac_decoder *decoder, char *buf, int len);
 int flac_seek(struct flac_decoder *decoder, int pos, int rel);
 int flac_time(struct flac_decoder *decoder);
+int flac_sample_rate(struct flac_decoder *decoder);
+int flac_channels(struct flac_decoder *decoder);
 int flac_length(struct flac_decoder *decoder);
 
 #endif // FLAC_H

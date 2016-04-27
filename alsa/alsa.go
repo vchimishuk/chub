@@ -45,9 +45,17 @@ func (a *Alsa) Open() error {
 	return nil
 }
 
+func (a *Alsa) SampleRate() int {
+	return a.handle.SampleRate
+}
+
 func (a *Alsa) SetSampleRate(rate int) {
 	a.handle.SampleRate = rate
 	a.handle.ApplyHwParams()
+}
+
+func (a *Alsa) Channels() int {
+	return a.handle.Channels
 }
 
 func (a *Alsa) SetChannels(channels int) {

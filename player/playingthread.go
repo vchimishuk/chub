@@ -229,8 +229,8 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	// TODO: Reset hw params on track change if needed.
 	// TODO: Check errors.
 	pt.output.Open()
-	pt.output.SetSampleRate(44100)
-	pt.output.SetChannels(2)
+	pt.output.SetSampleRate(decoder.SampleRate())
+	pt.output.SetChannels(decoder.Channels())
 
 	pt.pos = pos
 	pt.decoder = decoder

@@ -68,6 +68,14 @@ func (d *Decoder) Seek(pos int, rel bool) {
 	C.flac_seek(d.cDecoder, C.int(pos), C.int(bool2int(rel)))
 }
 
+func (d *Decoder) SampleRate() int {
+	return int(C.flac_sample_rate(d.cDecoder))
+}
+
+func (d *Decoder) Channels() int {
+	return int(C.flac_channels(d.cDecoder))
+}
+
 // Length returns file length in seconds.
 func (d *Decoder) Length() int {
 	return int(C.flac_length(d.cDecoder))

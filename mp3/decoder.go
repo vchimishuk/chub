@@ -68,6 +68,14 @@ func (d *Decoder) Time() int {
 	return int(d.cDecoder.position)
 }
 
+func (d *Decoder) SampleRate() int {
+	return int(d.cDecoder.sample_rate)
+}
+
+func (d *Decoder) Channels() int {
+	return int(d.cDecoder.channels)
+}
+
 func (d *Decoder) Close() {
 	C.mp3_close(d.cDecoder)
 }
