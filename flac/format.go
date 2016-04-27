@@ -35,6 +35,9 @@ func (f format) Length(file string) int {
 	d := NewDecoder()
 	defer d.Close()
 
+	d.Open(file)
+	// TODO: Check error. Add error in Decoder.Length() signature.
+
 	return d.Length()
 }
 
