@@ -26,12 +26,12 @@ import (
 type command int
 
 const (
-	cmdNext command = iota
+	cmdClose command = iota
+	cmdNext
 	cmdPause
 	cmdPlay
 	cmdPlist
 	cmdPrev
-	cmdQuit
 	cmdStop
 )
 
@@ -77,6 +77,10 @@ func (pt *playingThread) Start() {
 
 func (pt *playingThread) Stop() {
 	pt.msgChan <- &message{cmd: cmdStop, args: []interface{}{}}
+}
+
+func (pt *playingThread) Close() {
+	pt.msgChan <- &message{cmd: cmdClose, args: []interface{}{}}
 	// Wait till loop() closes a channel before exit.
 	<-pt.msgChan
 }
@@ -120,7 +124,7 @@ func (pt *playingThread) loop() {
 			case cmdPlay:
 				pt.setPlaylist(msg.args[0].([]*vfs.Track))
 				pt.play(msg.args[1].(int), false)
-			case cmdQuit:
+			case cmdClose:
 				quit = true
 				fallthrough
 			case cmdStop:

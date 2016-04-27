@@ -66,6 +66,10 @@ func New(fmts []Format, output Output) *Player {
 	return p
 }
 
+func (p *Player) Close() {
+	p.pt.Close()
+}
+
 func (p *Player) Play(path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
