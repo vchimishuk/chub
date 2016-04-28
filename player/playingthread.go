@@ -167,17 +167,10 @@ func (pt *playingThread) loop() {
 				buf = make([]byte, size)
 			}
 
-			// TODO: Stopped here.
-			//
-			// Stop this track decoding if track time exceeded: close
-			// decoder and move to next track. But if next track lives
-			// in the same file decoder can be reused and position
-			// can be simply seeked or even noop (neighbour tracks).
-
 			cur := pt.plist[pt.pos]
 			read := 0
 
-			if pt.decoder.Time() < cur.End {
+			if !cur.Part || pt.decoder.Time() < cur.End {
 				read, _ = pt.decoder.Read(buf)
 				// TODO: Handle error.
 			}
@@ -200,42 +193,70 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	} else if pos >= len(pt.plist) {
 		pos = 0
 	}
-
-	// TODO: smooth support: don't touch output on smooth transition.
 	if pt.state != stateStopped {
-		// TODO: Empty output.
 		pt.stopBufAvailableChecker()
-		pt.decoder.Close()
-		pt.output.Close()
-		pt.state = stateStopped
 	}
 
 	track := pt.plist[pos]
-	df := pt.decoders[track.Path.Ext()]
-	if df == nil {
-		// TODO: Skip this track and try next one.
-		panic("TODO:")
+	sameFile := false
+	upcoming := false
+
+	if pt.state == statePlaying {
+		cur := pt.plist[pt.pos]
+		sameFile = cur.Path.File() == track.Path.File()
+		upcoming = cur.End == track.Start
 	}
-	decoder := df()
-	err := decoder.Open(track.Path.File())
-	if err != nil {
-		// TODO: Skip this track and try next one.
-		panic("TODO:")
+
+	// Do not reopen decoder if next track from the same physical file
+	// as a current one.
+	if !sameFile {
+		if pt.state == statePlaying {
+			pt.decoder.Close()
+		}
+
+		df := pt.decoders[track.Path.Ext()]
+		if df == nil {
+			pt.decoder.Close()
+			pt.state = stateStopped
+			// TODO: Skip this track and try next one.
+			panic("TODO:")
+		}
+		decoder := df()
+		err := decoder.Open(track.Path.File())
+		if err != nil {
+			pt.decoder.Close()
+			pt.state = stateStopped
+			// TODO: Skip this track and try next one.
+			panic("TODO:")
+		}
+
+		pt.decoder = decoder
 	}
 	if track.Part {
-		decoder.Seek(track.Start, false)
+		// Do not seek for just coming next tracks.
+		if !sameFile || !upcoming {
+			pt.decoder.Seek(track.Start, false)
+		}
 	}
 
-	// TODO: Reset hw params on track change if needed.
-	// TODO: Check errors.
-	pt.output.Open()
-	pt.output.SetSampleRate(decoder.SampleRate())
-	pt.output.SetChannels(decoder.Channels())
+	if !pt.output.IsOpen() {
+		pt.output.Open() // TODO: Check errors.
+	}
+	if !smooth {
+		pt.output.Reset()
+	}
+	osr := pt.output.SampleRate()
+	och := pt.output.Channels()
+	dsr := pt.decoder.SampleRate()
+	dch := pt.decoder.Channels()
+	if osr != dsr || och != dch {
+		pt.output.SetSampleRate(dsr)
+		pt.output.SetChannels(dch)
+	}
 
 	pt.pos = pos
-	pt.decoder = decoder
-	pt.startBufAvailableChecker()
 	pt.state = statePlaying
+	pt.startBufAvailableChecker()
 }
 
 func (pt *playingThread) stop() {

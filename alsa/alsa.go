@@ -26,6 +26,7 @@ var DriverName string = "alsa"
 // Alsa aoutput driter handler structure.
 type Alsa struct {
 	handle *asoundlib.Handle
+	open   bool
 }
 
 // New returns newly initialized alsa output driver.
@@ -40,9 +41,18 @@ func (a *Alsa) Open() error {
 		return err
 	}
 
-	a.handle.SampleFormat = asoundlib.SampleFormatS16LE // XXX:
+	a.handle.SampleFormat = asoundlib.SampleFormatS16LE
+	a.handle.SampleRate = 44100
+	a.handle.Channels = 2
+	a.handle.ApplyHwParams()
+
+	a.open = true
 
 	return nil
+}
+
+func (a *Alsa) IsOpen() bool {
+	return a.open
 }
 
 func (a *Alsa) SampleRate() int {
@@ -75,6 +85,10 @@ func (a *Alsa) Write(buf []byte) (written int, err error) {
 	return a.handle.Write(buf)
 }
 
+func (a *Alsa) Reset() {
+	a.handle.Reset()
+}
+
 func (a *Alsa) Pause() {
 	a.handle.Pause()
 }
@@ -85,4 +99,5 @@ func (a *Alsa) Paused() bool {
 
 func (a *Alsa) Close() {
 	a.handle.Close()
+	a.open = false
 }

@@ -242,6 +242,11 @@ func (handle *Handle) Write(buf []byte) (wrote int, err error) {
 	return wrote, nil
 }
 
+func (handle *Handle) Reset() {
+	C.snd_pcm_reset(handle.cHandle)
+	// TODO: Error handling.
+}
+
 // Pause PCM.
 func (handle *Handle) Pause() error {
 	var pause int

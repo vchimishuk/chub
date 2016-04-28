@@ -21,6 +21,8 @@ package player
 type Output interface {
 	// Open opens output audio device.
 	Open() error
+	// IsOpen returns true if output is in open state.
+	IsOpen() bool
 	// Returns current sample rate.
 	SampleRate() int
 	// Set new value for sample rate parameter.
@@ -37,6 +39,8 @@ type Output interface {
 	AvailUpdate() (size int, err error)
 	// Write new portion of data into buffer.
 	Write(buf []byte) (written int, err error)
+	// Reset empties ouput buffer.
+	Reset()
 	// Pause pauses or resumes playback process.
 	Pause()
 	// Paused returns true if output driver is in paused state now.
