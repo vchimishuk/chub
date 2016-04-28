@@ -18,6 +18,7 @@
 package player
 
 import (
+	"io"
 	"time"
 
 	"github.com/vchimishuk/chub/vfs"
@@ -177,9 +178,8 @@ func (pt *playingThread) loop() {
 			if read == 0 {
 				pt.play(pt.pos+1, true)
 			} else {
-				// TODO: If wrote not all data?
-				pt.output.Write(buf[:read])
-				// TODO: Log when read != wrote in debug mode.
+				// TODO: Error handling.
+				writeAll(pt.output, buf[:read])
 			}
 		}
 	}
@@ -328,4 +328,16 @@ func cloneTracks(tracks []*vfs.Track) []*vfs.Track {
 	copy(s, tracks)
 
 	return s
+}
+
+func writeAll(w io.Writer, buf []byte) error {
+	for len(buf) > 0 {
+		n, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+		buf = buf[n:]
+	}
+
+	return nil
 }
