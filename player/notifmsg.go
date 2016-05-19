@@ -15,47 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
+package player
 
-import (
-	"fmt"
-	"net"
+type Event string
 
-	"github.com/vchimishuk/chub/cnet"
+const (
+	PlaylistEvent  Event = "PLAYLIST"
+	PlaylistsEvent Event = "PLAYLISTS"
+	TrackEvent     Event = "TRACK"
+	VolumeEvent    Event = "VOLUME"
 )
 
-type ClientConn struct {
-	*cnet.TextConn
-}
-
-func newClientConn(conn net.Conn) *ClientConn {
-	return &ClientConn{TextConn: cnet.NewTextConn(conn)}
-}
-
-func (c *ClientConn) WriteOkResp(lines []string) error {
-	_, err := c.WriteLine("OK")
-
-	for _, line := range lines {
-		_, err := c.WriteLine(line)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-	_, err = c.WriteLine("")
-
-	return err
-}
-
-func (c *ClientConn) WriteErrorResp(e error) error {
-	_, err := c.WriteLine(fmt.Sprintf("ERR %s", e.Error()))
-	if err != nil {
-		return err
-	}
-	_, err = c.WriteLine("")
-
-	return err
+type NotifMsg struct {
+	Event Event
+	Value interface{}
 }

@@ -43,6 +43,8 @@ type Player struct {
 	decoders map[string]func() Decoder
 	output   Output
 	pt       *playingThread
+	notifsMu sync.RWMutex // Guards next field.
+	notifs   []chan *NotifMsg
 }
 
 func New(fmts []Format, output Output) *Player {
@@ -64,6 +66,25 @@ func New(fmts []Format, output Output) *Player {
 	p.pt.Start()
 
 	return p
+}
+
+func (p *Player) AddNotifier(notif chan *NotifMsg) {
+	p.notifsMu.Lock()
+	defer p.notifsMu.Unlock()
+
+	p.notifs = append(p.notifs, notif)
+}
+
+func (p *Player) RemoveNotifier(notif chan *NotifMsg) {
+	p.notifsMu.Lock()
+	defer p.notifsMu.Unlock()
+
+	for i, n := range p.notifs {
+		if n == notif {
+			p.notifs = append(p.notifs[:i], p.notifs[i+1:]...)
+			break
+		}
+	}
 }
 
 func (p *Player) Close() {
@@ -165,13 +186,15 @@ func (p *Player) Clear(plist string) error {
 
 func (p *Player) Create(plist string) error {
 	p.plistsMu.Lock()
-	defer p.plistsMu.Unlock()
-
 	_, err := p.playlist(plist)
 	if err == nil {
+		p.plistsMu.Unlock()
 		return errors.New("playlist already exists")
 	}
 	p.plists[plist] = NewPlaylist(plist)
+	p.plistsMu.Unlock()
+
+	p.notify(PlaylistsEvent, p.Playlists())
 
 	return nil
 }
@@ -231,6 +254,17 @@ func (p *Player) Playlists() []*PlaylistInfo {
 	}
 
 	return plists
+}
+
+func (p *Player) notify(e Event, val interface{}) {
+	p.notifsMu.RLock()
+	defer p.notifsMu.RUnlock()
+
+	for _, n := range p.notifs {
+		go func() {
+			n <- &NotifMsg{Event: e, Value: val}
+		}()
+	}
 }
 
 // playlist returns existing playlist by name.

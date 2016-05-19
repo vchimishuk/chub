@@ -25,6 +25,7 @@ import (
 	"github.com/vchimishuk/chub/mp3"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/server/cmd"
+	"github.com/vchimishuk/chub/server/notif"
 	"github.com/vchimishuk/chub/vfs"
 )
 
@@ -42,10 +43,18 @@ func main() {
 
 	output := alsa.New()
 	pl := player.New(fmts, output)
-	srv := cmd.New(pl)
 
-	srv.Listen("localhost", 8888)
-	fmt.Println("Server started")
-	srv.Serve()
-	fmt.Println("Server stopped")
+	notifSrv := notif.NewServer(pl)
+	notifSrv.Listen("localhost", 8889)
+	fmt.Println("Notification server started")
+	go notifSrv.Serve()
+
+	cmdSrv := cmd.NewServer(pl)
+	cmdSrv.Listen("localhost", 8888)
+	fmt.Println("Command server started")
+	cmdSrv.Serve()
+	fmt.Println("Command server stopped")
+
+	notifSrv.Close()
+	fmt.Println("Notification server stopped")
 }

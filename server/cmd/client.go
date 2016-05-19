@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/vchimishuk/chub/player"
+	"github.com/vchimishuk/chub/serialize"
 	"github.com/vchimishuk/chub/vfs"
 )
 
@@ -37,7 +38,8 @@ func newClient(conn net.Conn, pl *player.Player) *Client {
 	return &Client{
 		conn:   newClientConn(conn),
 		player: pl,
-		close:  make(chan interface{}, 1)}
+		close:  make(chan interface{}, 1),
+	}
 }
 
 func (c *Client) Serve() {
@@ -60,14 +62,14 @@ func (c *Client) Serve() {
 			c.conn.WriteErrorResp(err)
 		} else {
 			var err error
-			var resp []map[string]interface{}
+			var lines []string
 
 			switch cmd.name {
 			case cmdKill:
 				kill = true
 				quit = true
 			case cmdLs:
-				resp, err = c.ls(cmd.args[0].(string))
+				lines, err = c.ls(cmd.args[0].(string))
 			case cmdPing:
 				// Do nothing.
 			case cmdPlay:
@@ -83,13 +85,13 @@ func (c *Client) Serve() {
 			case cmdPlaylistDelete:
 				err = c.player.Delete(cmd.args[0].(string))
 			case cmdPlaylistList:
-				resp, err = c.playlist(cmd.args[0].(string))
+				lines, err = c.playlist(cmd.args[0].(string))
 			case cmdPlaylistRename:
 				oldName := cmd.args[0].(string)
 				newName := cmd.args[1].(string)
 				err = c.player.Rename(oldName, newName)
 			case cmdPlaylistsList:
-				resp = c.playlists()
+				lines = c.playlists()
 			case cmdQuit:
 				quit = true
 			default:
@@ -104,7 +106,7 @@ func (c *Client) Serve() {
 				}
 				c.conn.WriteErrorResp(err)
 			} else {
-				c.conn.WriteOkResp(resp...)
+				c.conn.WriteOkResp(lines)
 			}
 		}
 
@@ -128,7 +130,7 @@ func (c *Client) Close() {
 	<-c.close
 }
 
-func (c *Client) OnClose(handler func(*Client, bool)) {
+func (c *Client) SetOnClose(handler func(*Client, bool)) {
 	c.onClose = handler
 }
 
@@ -150,7 +152,7 @@ func (c *Client) append(name string, path string) error {
 	return c.player.Append(name, p)
 }
 
-func (c *Client) ls(path string) ([]map[string]interface{}, error) {
+func (c *Client) ls(path string) ([]string, error) {
 	p, err := vfs.NewPath(path)
 	if err != nil {
 		return nil, err
@@ -163,38 +165,34 @@ func (c *Client) ls(path string) ([]map[string]interface{}, error) {
 		return nil, err
 	}
 
-	maps := make([]map[string]interface{}, 0, len(entries))
+	lines := make([]string, 0, len(entries))
 	for _, e := range entries {
-		maps = append(maps, entryToMap(e))
+		lines = append(lines, serialize.Entry(e))
 	}
 
-	return maps, nil
+	return lines, nil
 }
 
-func (c *Client) playlist(name string) ([]map[string]interface{}, error) {
+func (c *Client) playlist(name string) ([]string, error) {
 	plist, err := c.player.Playlist(name)
 	if err != nil {
 		return nil, err
 	}
 
-	maps := make([]map[string]interface{}, 0, len(plist.Tracks()))
+	lines := make([]string, 0, len(plist.Tracks()))
 	for _, track := range plist.Tracks() {
-		maps = append(maps, trackToMap(track))
+		lines = append(lines, serialize.Track(track))
 	}
 
-	return maps, nil
+	return lines, nil
 }
 
-func (c *Client) playlists() []map[string]interface{} {
+func (c *Client) playlists() []string {
 	plists := c.player.Playlists()
-	maps := make([]map[string]interface{}, 0, len(plists))
+	lines := make([]string, 0, len(plists))
 	for _, pl := range plists {
-		maps = append(maps, map[string]interface{}{
-			"name":     pl.Name,
-			"duration": pl.Duration,
-			"length":   pl.Len,
-		})
+		lines = append(lines, serialize.PlaylistInfo(pl))
 	}
 
-	return maps
+	return lines
 }

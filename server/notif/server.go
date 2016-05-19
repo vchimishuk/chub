@@ -15,41 +15,47 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
+package notif
 
-import "github.com/vchimishuk/chub/vfs"
+import (
+	"net"
 
-func entryToMap(e interface{}) map[string]interface{} {
-	switch e.(type) {
-	case *vfs.Dir:
-		return dirToMap(e.(*vfs.Dir))
-	case *vfs.Track:
-		return trackToMap(e.(*vfs.Track))
-	default:
-		panic("unsupported type")
-	}
+	"github.com/vchimishuk/chub/cnet"
+	"github.com/vchimishuk/chub/player"
+)
+
+type Server struct {
+	srv *cnet.Server
 }
 
-func dirToMap(d *vfs.Dir) map[string]interface{} {
-	return map[string]interface{}{
-		"type": "dir",
-		"path": d.Path.Val(),
-		"name": d.Name,
-	}
+func NewServer(p *player.Player) *Server {
+	srv := cnet.NewServer()
+	srv.SetOnClient(func(conn net.Conn) cnet.Client {
+		n := make(chan *player.NotifMsg)
+
+		p.AddNotifier(n)
+
+		c := newClient(conn, n)
+		c.SetOnClose(func(cl *Client, kill bool) {
+			p.RemoveNotifier(n)
+			srv.RemoveClient(cl)
+		})
+		go c.Serve()
+
+		return c
+	})
+
+	return &Server{srv: srv}
 }
 
-func trackToMap(t *vfs.Track) map[string]interface{} {
-	m := map[string]interface{}{
-		"type":   "track",
-		"path":   t.Path.String(),
-		"length": t.Length,
-	}
-	if t.Tag != nil {
-		m["artist"] = t.Tag.Artist
-		m["album"] = t.Tag.Album
-		m["title"] = t.Tag.Title
-		m["number"] = t.Tag.Number
-	}
+func (s *Server) Listen(addr string, port int) error {
+	return s.srv.Listen(addr, port)
+}
 
-	return m
+func (s *Server) Serve() {
+	s.srv.Serve()
+}
+
+func (s *Server) Close() {
+	s.srv.Close()
 }
