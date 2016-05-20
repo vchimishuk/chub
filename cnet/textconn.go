@@ -33,7 +33,8 @@ func NewTextConn(conn net.Conn) *TextConn {
 	return &TextConn{
 		conn:   conn,
 		reader: textproto.NewReader(bufio.NewReader(conn)),
-		writer: bufio.NewWriter(conn)}
+		writer: bufio.NewWriter(conn),
+	}
 }
 
 func (c *TextConn) ReadLine() (string, error) {
