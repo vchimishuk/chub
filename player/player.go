@@ -92,9 +92,6 @@ func (p *Player) Close() {
 }
 
 func (p *Player) Play(path *vfs.Path) error {
-	p.plistsMu.Lock()
-	defer p.plistsMu.Unlock()
-
 	// Fill VFS playlist.
 	var dir *vfs.Path
 	var pos int = -1
@@ -111,6 +108,10 @@ func (p *Player) Play(path *vfs.Path) error {
 	if err != nil {
 		return err
 	}
+
+	p.plistsMu.Lock()
+	defer p.plistsMu.Unlock()
+
 	p.vfsPlist.Clear()
 	for i, entry := range entries {
 		if !entry.IsDir() {
@@ -125,7 +126,7 @@ func (p *Player) Play(path *vfs.Path) error {
 		}
 	}
 	p.curPlist = p.vfsPlist
-	p.pt.Play(p.curPlist.Tracks(), pos)
+	p.pt.Play(cloneTracks(p.curPlist.Tracks()), pos)
 
 	return nil
 }
@@ -161,8 +162,10 @@ func (p *Player) Append(plist string, path *vfs.Path) error {
 	}
 	pl.Append(tracks...)
 	if pl == p.curPlist {
-		p.pt.SetPlaylist(pl.Tracks())
+		p.pt.SetPlaylist(cloneTracks(pl.Tracks()))
 	}
+
+	p.notify(PlaylistEvent, plist, tracks)
 
 	return nil
 }
@@ -178,8 +181,10 @@ func (p *Player) Clear(plist string) error {
 
 	pl.Clear()
 	if pl == p.curPlist {
-		p.pt.SetPlaylist(pl.Tracks())
+		p.pt.SetPlaylist(cloneTracks(pl.Tracks()))
 	}
+
+	p.notify(PlaylistEvent, plist, cloneTracks(pl.Tracks))
 
 	return nil
 }
@@ -201,10 +206,10 @@ func (p *Player) Create(plist string) error {
 
 func (p *Player) Delete(plist string) error {
 	p.plistsMu.Lock()
-	defer p.plistsMu.Unlock()
 
 	pl, err := p.playlist(plist)
 	if err != nil {
+		p.plistsMu.Unlock()
 		return err
 	}
 
@@ -212,6 +217,9 @@ func (p *Player) Delete(plist string) error {
 	if pl == p.curPlist {
 		p.pt.Stop()
 	}
+	p.plistsMu.Unlock()
+
+	p.notify(PlaylistsEvent, p.Playlists())
 
 	return nil
 }
@@ -230,14 +238,17 @@ func (p *Player) Playlist(name string) (*Playlist, error) {
 
 func (p *Player) Rename(from string, to string) error {
 	p.plistsMu.Lock()
-	defer p.plistsMu.Unlock()
 
 	pl, err := p.playlist(from)
 	if err != nil {
+		p.plistsMu.Unlock()
 		return err
 	}
 
 	pl.SetName(to)
+	p.plistsMu.Unlock()
+
+	p.notify(PlaylistsEvent, p.Playlists())
 
 	return nil
 }
@@ -256,13 +267,13 @@ func (p *Player) Playlists() []*PlaylistInfo {
 	return plists
 }
 
-func (p *Player) notify(e Event, val interface{}) {
+func (p *Player) notify(e Event, args ...interface{}) {
 	p.notifsMu.RLock()
 	defer p.notifsMu.RUnlock()
 
 	for _, n := range p.notifs {
 		go func() {
-			n <- &NotifMsg{Event: e, Value: val}
+			n <- &NotifMsg{Event: e, Args: args}
 		}()
 	}
 }

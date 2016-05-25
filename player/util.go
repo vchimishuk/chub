@@ -17,16 +17,23 @@
 
 package player
 
-type Event string
+import "io"
 
-const (
-	PlaylistEvent  Event = "PLAYLIST"
-	PlaylistsEvent Event = "PLAYLISTS"
-	TrackEvent     Event = "TRACK"
-	VolumeEvent    Event = "VOLUME"
-)
+func cloneTracks(tracks []*vfs.Track) []*vfs.Track {
+	s := make([]*vfs.Track, len(tracks))
+	copy(s, tracks)
 
-type NotifMsg struct {
-	Event Event
-	Args  []interface{}
+	return s
+}
+
+func writeAll(w io.Writer, buf []byte) error {
+	for len(buf) > 0 {
+		n, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+		buf = buf[n:]
+	}
+
+	return nil
 }

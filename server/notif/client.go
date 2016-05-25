@@ -23,6 +23,7 @@ import (
 	"github.com/vchimishuk/chub/cnet"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/serialize"
+	"github.com/vchimishuk/chub/vfs"
 )
 
 type Client struct {
@@ -66,8 +67,12 @@ func (c *Client) notify(msg *player.NotifMsg) {
 	c.conn.WriteLine(string(msg.Event))
 
 	switch msg.Event {
+	case player.PlaylistEvent:
+		name := msg.Args[0].(string)
+		tracks := msg.Args[1].([]*vfs.Track)
+		c.playlist(name, tracks)
 	case player.PlaylistsEvent:
-		plists := msg.Value.([]*player.PlaylistInfo)
+		plists := msg.Args[0].([]*player.PlaylistInfo)
 		c.playlists(plists)
 	default:
 		panic("unsupported event")
@@ -80,5 +85,12 @@ func (c *Client) notify(msg *player.NotifMsg) {
 func (c *Client) playlists(plists []*player.PlaylistInfo) {
 	for _, pl := range plists {
 		c.conn.WriteLine(serialize.PlaylistInfo(pl))
+	}
+}
+
+func (c *Client) playlist(name string, tracks []*vfs.Track) {
+	c.conn.WriteLine(name)
+	for _, t := range tracks {
+		c.conn.WriteLine(serialize.Track(t))
 	}
 }

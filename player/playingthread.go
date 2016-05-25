@@ -18,7 +18,6 @@
 package player
 
 import (
-	"io"
 	"time"
 
 	"github.com/vchimishuk/chub/vfs"
@@ -285,7 +284,7 @@ func (pt *playingThread) setPlaylist(plist []*vfs.Track) {
 		}
 	}
 
-	pt.plist = cloneTracks(plist)
+	pt.plist = plist
 }
 
 func (pt *playingThread) startBufAvailableChecker() {
@@ -321,23 +320,4 @@ func bufAvailableChecker(output Output, ch chan struct{}) {
 			}
 		}
 	}
-}
-
-func cloneTracks(tracks []*vfs.Track) []*vfs.Track {
-	s := make([]*vfs.Track, len(tracks))
-	copy(s, tracks)
-
-	return s
-}
-
-func writeAll(w io.Writer, buf []byte) error {
-	for len(buf) > 0 {
-		n, err := w.Write(buf)
-		if err != nil {
-			return err
-		}
-		buf = buf[n:]
-	}
-
-	return nil
 }
