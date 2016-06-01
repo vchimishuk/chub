@@ -19,13 +19,6 @@ package player
 
 import "io"
 
-func cloneTracks(tracks []*vfs.Track) []*vfs.Track {
-	s := make([]*vfs.Track, len(tracks))
-	copy(s, tracks)
-
-	return s
-}
-
 func writeAll(w io.Writer, buf []byte) error {
 	for len(buf) > 0 {
 		n, err := w.Write(buf)

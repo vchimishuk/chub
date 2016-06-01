@@ -72,7 +72,7 @@ func (c *Client) notify(msg *player.NotifMsg) {
 		tracks := msg.Args[1].([]*vfs.Track)
 		c.playlist(name, tracks)
 	case player.PlaylistsEvent:
-		plists := msg.Args[0].([]*player.PlaylistInfo)
+		plists := msg.Args[0].([]*player.Playlist)
 		c.playlists(plists)
 	default:
 		panic("unsupported event")
@@ -82,9 +82,9 @@ func (c *Client) notify(msg *player.NotifMsg) {
 	c.conn.Flush()
 }
 
-func (c *Client) playlists(plists []*player.PlaylistInfo) {
+func (c *Client) playlists(plists []*player.Playlist) {
 	for _, pl := range plists {
-		c.conn.WriteLine(serialize.PlaylistInfo(pl))
+		c.conn.WriteLine(serialize.Playlist(pl))
 	}
 }
 

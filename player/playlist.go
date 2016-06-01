@@ -19,55 +19,47 @@ package player
 
 import "github.com/vchimishuk/chub/vfs"
 
-type PlaylistInfo struct {
+type Playlist struct {
 	name     string
 	duration int
-	len      int
-}
-
-func (pi *PlaylistInfo) Name() string {
-	return pi.name
-}
-
-func (pi *PlaylistInfo) SetName(name string) {
-	pi.name = name
-}
-
-func (pi *PlaylistInfo) Duration() int {
-	return pi.duration
-}
-
-func (pi *PlaylistInfo) Len() int {
-	return pi.len
-}
-
-type Playlist struct {
-	PlaylistInfo
-	tracks []*vfs.Track
+	tracks   *Tracks
 }
 
 func NewPlaylist(name string) *Playlist {
 	return &Playlist{
-		PlaylistInfo: PlaylistInfo{name: name},
-		tracks:       make([]*vfs.Track, 0)}
+		name:   name,
+		tracks: &Tracks{},
+	}
 }
 
-func (pl *Playlist) Tracks() []*vfs.Track {
+func (pl *Playlist) Name() string {
+	return pl.name
+}
+
+func (pl *Playlist) SetName(name string) {
+	pl.name = name
+}
+
+func (pl *Playlist) Duration() int {
+	return pl.duration
+}
+
+func (pl *Playlist) Tracks() *Tracks {
 	return pl.tracks
 }
 
 func (pl *Playlist) Len() int {
-	return len(pl.tracks)
+	return pl.tracks.Len()
 }
 
 func (pl *Playlist) Clear() {
-	pl.tracks = make([]*vfs.Track, 0)
+	pl.tracks = &Tracks{}
 	pl.duration = 0
 }
 
 func (pl *Playlist) Find(track *vfs.Track) int {
-	for i := 0; i < len(pl.tracks); i++ {
-		if &pl.tracks[i].Path == &track.Path {
+	for i := 0; i < pl.tracks.Len(); i++ {
+		if &pl.tracks.Get(i).Path == &track.Path {
 			return i
 		}
 	}
@@ -76,23 +68,16 @@ func (pl *Playlist) Find(track *vfs.Track) int {
 }
 
 func (pl *Playlist) Append(tracks ...*vfs.Track) {
-	pl.tracks = append(pl.tracks, tracks...)
+	pl.tracks = pl.tracks.Append(tracks...)
 	for _, t := range tracks {
 		pl.duration += t.Length
 	}
 }
 
 func (pl *Playlist) clone() *Playlist {
-	tracks := make([]*vfs.Track, pl.Len())
-	copy(tracks, pl.tracks)
-
 	return &Playlist{
-		PlaylistInfo: PlaylistInfo{
-			name:     pl.name,
-			duration: pl.duration},
-		tracks: tracks}
-}
-
-func (pl *Playlist) info() *PlaylistInfo {
-	return &PlaylistInfo{name: pl.name, duration: pl.duration, len: pl.len}
+		name:     pl.name,
+		duration: pl.duration,
+		tracks:   pl.tracks,
+	}
 }

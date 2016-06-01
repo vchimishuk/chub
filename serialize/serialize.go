@@ -66,11 +66,11 @@ func Track(track *vfs.Track) string {
 	return Map(trackToMap(track))
 }
 
-func PlaylistInfo(pi *player.PlaylistInfo) string {
+func Playlist(plist *player.Playlist) string {
 	return Map(map[string]interface{}{
-		"name":     pi.Name(),
-		"duration": pi.Duration(),
-		"length":   pi.Len(),
+		"name":     plist.Name(),
+		"duration": plist.Duration(),
+		"length":   plist.Len(),
 	})
 }
 

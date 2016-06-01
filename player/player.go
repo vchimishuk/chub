@@ -126,7 +126,7 @@ func (p *Player) Play(path *vfs.Path) error {
 		}
 	}
 	p.curPlist = p.vfsPlist
-	p.pt.Play(cloneTracks(p.curPlist.Tracks()), pos)
+	p.pt.Play(p.curPlist.Tracks(), pos)
 
 	return nil
 }
@@ -162,7 +162,7 @@ func (p *Player) Append(plist string, path *vfs.Path) error {
 	}
 	pl.Append(tracks...)
 	if pl == p.curPlist {
-		p.pt.SetPlaylist(cloneTracks(pl.Tracks()))
+		p.pt.SetPlaylist(pl.Tracks())
 	}
 
 	p.notify(PlaylistEvent, plist, tracks)
@@ -181,10 +181,10 @@ func (p *Player) Clear(plist string) error {
 
 	pl.Clear()
 	if pl == p.curPlist {
-		p.pt.SetPlaylist(cloneTracks(pl.Tracks()))
+		p.pt.SetPlaylist(pl.Tracks())
 	}
 
-	p.notify(PlaylistEvent, plist, cloneTracks(pl.Tracks))
+	p.notify(PlaylistEvent, plist, pl.Tracks())
 
 	return nil
 }
@@ -253,14 +253,14 @@ func (p *Player) Rename(from string, to string) error {
 	return nil
 }
 
-func (p *Player) Playlists() []*PlaylistInfo {
+func (p *Player) Playlists() []*Playlist {
 	p.plistsMu.RLock()
 	defer p.plistsMu.RUnlock()
 
-	plists := make([]*PlaylistInfo, len(p.plists))
+	plists := make([]*Playlist, len(p.plists))
 	i := 0
 	for _, pl := range p.plists {
-		plists[i] = pl.info()
+		plists[i] = pl.clone()
 		i++
 	}
 

@@ -179,9 +179,10 @@ func (c *Client) playlist(name string) ([]string, error) {
 		return nil, err
 	}
 
-	lines := make([]string, 0, len(plist.Tracks()))
-	for _, track := range plist.Tracks() {
-		lines = append(lines, serialize.Track(track))
+	tracks := plist.Tracks()
+	lines := make([]string, 0, tracks.Len())
+	for i := 0; i < tracks.Len(); i++ {
+		lines = append(lines, serialize.Track(tracks.Get(i)))
 	}
 
 	return lines, nil
@@ -191,7 +192,7 @@ func (c *Client) playlists() []string {
 	plists := c.player.Playlists()
 	lines := make([]string, 0, len(plists))
 	for _, pl := range plists {
-		lines = append(lines, serialize.PlaylistInfo(pl))
+		lines = append(lines, serialize.Playlist(pl))
 	}
 
 	return lines

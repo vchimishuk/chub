@@ -17,11 +17,7 @@
 
 package player
 
-import (
-	"time"
-
-	"github.com/vchimishuk/chub/vfs"
-)
+import "time"
 
 type command int
 
@@ -51,7 +47,7 @@ const (
 type playingThread struct {
 	decoders     map[string]func() Decoder
 	output       Output
-	plist        []*vfs.Track
+	plist        *Tracks
 	pos          int
 	msgChan      chan *message
 	state        state
@@ -85,7 +81,7 @@ func (pt *playingThread) Close() {
 	<-pt.msgChan
 }
 
-func (pt *playingThread) Play(plist []*vfs.Track, pos int) {
+func (pt *playingThread) Play(plist *Tracks, pos int) {
 	pt.msgChan <- &message{cmd: cmdPlay, args: []interface{}{plist, pos}}
 }
 
@@ -101,7 +97,7 @@ func (pt *playingThread) Prev() {
 	pt.msgChan <- &message{cmd: cmdPrev, args: []interface{}{}}
 }
 
-func (pt *playingThread) SetPlaylist(plist []*vfs.Track) {
+func (pt *playingThread) SetPlaylist(plist *Tracks) {
 	pt.msgChan <- &message{cmd: cmdPlist, args: []interface{}{plist}}
 }
 
@@ -117,12 +113,12 @@ func (pt *playingThread) loop() {
 		case msg := <-pt.msgChan:
 			switch msg.cmd {
 			case cmdPlist:
-				pt.setPlaylist(msg.args[0].([]*vfs.Track))
+				pt.setPlaylist(msg.args[0].(*Tracks))
 				if pt.pos == -1 {
 					pt.stop()
 				}
 			case cmdPlay:
-				pt.setPlaylist(msg.args[0].([]*vfs.Track))
+				pt.setPlaylist(msg.args[0].(*Tracks))
 				pt.play(msg.args[1].(int), false)
 			case cmdClose:
 				quit = true
@@ -167,7 +163,7 @@ func (pt *playingThread) loop() {
 				buf = make([]byte, size)
 			}
 
-			cur := pt.plist[pt.pos]
+			cur := pt.plist.Get(pt.pos)
 			read := 0
 
 			if !cur.Part || pt.decoder.Time() < cur.End {
@@ -188,20 +184,20 @@ func (pt *playingThread) loop() {
 
 func (pt *playingThread) play(pos int, smooth bool) {
 	if pos < 0 {
-		pos = len(pt.plist) - 1
-	} else if pos >= len(pt.plist) {
+		pos = pt.plist.Len() - 1
+	} else if pos >= pt.plist.Len() {
 		pos = 0
 	}
 	if pt.state != stateStopped {
 		pt.stopBufAvailableChecker()
 	}
 
-	track := pt.plist[pos]
+	track := pt.plist.Get(pos)
 	sameFile := false
 	upcoming := false
 
 	if pt.state == statePlaying {
-		cur := pt.plist[pt.pos]
+		cur := pt.plist.Get(pt.pos)
 		sameFile = cur.Path.File() == track.Path.File()
 		upcoming = cur.End == track.Start
 	}
@@ -269,15 +265,15 @@ func (pt *playingThread) stop() {
 	}
 }
 
-func (pt *playingThread) setPlaylist(plist []*vfs.Track) {
+func (pt *playingThread) setPlaylist(plist *Tracks) {
 	// Try to find current track in new playlist.
 	if pt.state != stateStopped {
-		cur := pt.plist[pt.pos]
+		cur := pt.plist.Get(pt.pos)
 		pt.pos = -1
-		for i, t := range plist {
+		for i := 0; i < plist.Len(); i++ {
 			// Yes, compare pointers. It helps us handle
 			// track duplications in the playlist.
-			if t == cur {
+			if plist.Get(i) == cur {
 				pt.pos = i
 				break
 			}
