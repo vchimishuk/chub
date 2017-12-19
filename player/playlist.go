@@ -22,62 +22,46 @@ import "github.com/vchimishuk/chub/vfs"
 type Playlist struct {
 	name     string
 	duration int
-	tracks   *Tracks
+	tracks   []*vfs.Track
 }
 
 func NewPlaylist(name string) *Playlist {
-	return &Playlist{
-		name:   name,
-		tracks: &Tracks{},
-	}
+	return &Playlist{name: name}
 }
 
 func (pl *Playlist) Name() string {
 	return pl.name
 }
 
-func (pl *Playlist) SetName(name string) {
-	pl.name = name
+func (pl *Playlist) SetName(name string) *Playlist {
+	return &Playlist{name: name, duration: pl.duration, tracks: pl.tracks}
 }
 
 func (pl *Playlist) Duration() int {
 	return pl.duration
 }
 
-func (pl *Playlist) Tracks() *Tracks {
-	return pl.tracks
-}
-
 func (pl *Playlist) Len() int {
-	return pl.tracks.Len()
+	return len(pl.tracks)
 }
 
-func (pl *Playlist) Clear() {
-	pl.tracks = &Tracks{}
-	pl.duration = 0
+func (pl *Playlist) Clear_TEST() *Playlist {
+	return &Playlist{name: pl.name, duration: 0, tracks: nil}
 }
 
-func (pl *Playlist) Find(track *vfs.Track) int {
-	for i := 0; i < pl.tracks.Len(); i++ {
-		if &pl.tracks.Get(i).Path == &track.Path {
-			return i
-		}
-	}
-
-	return -1
+func (pl *Playlist) Get(i int) *vfs.Track {
+	return pl.tracks[i]
 }
 
-func (pl *Playlist) Append(tracks ...*vfs.Track) {
-	pl.tracks = pl.tracks.Append(tracks...)
+func (pl *Playlist) Append_TEST(tracks ...*vfs.Track) *Playlist {
+	t := make([]*vfs.Track, len(pl.tracks)+len(tracks))
+	copy(t, pl.tracks)
+	copy(t[len(pl.tracks):], tracks)
+
+	d := pl.duration
 	for _, t := range tracks {
-		pl.duration += t.Length
+		d += t.Length
 	}
-}
 
-func (pl *Playlist) clone() *Playlist {
-	return &Playlist{
-		name:     pl.name,
-		duration: pl.duration,
-		tracks:   pl.tracks,
-	}
+	return &Playlist{name: pl.name, duration: d, tracks: t}
 }

@@ -26,49 +26,53 @@ const (
 	// TODO: Replace BACKWARD & FORWARD with SEEK command.
 
 	// Seek playing track position backward.
-	cmdBackward = "BACKWARD"
-	// Seek playing track position forward.
-	cmdForward = "FORWARD"
-	// Stop the server.
-	cmdKill = "KILL"
-	// Show directory contents.
-	cmdLs = "LS"
-	// Play next track in the current playing playlist.
-	cmdNext = "NEXT"
-	// Toggle paused state.
-	cmdPause = "PAUSE"
-	// Do nothing, just returns "OK" response.
-	cmdPing = "PING"
-	// Play a path (track or directory) from VFS.
-	cmdPlay = "PLAY"
-	// Add new tracks or folder to the end of the playlist.
-	cmdPlaylistAppend = "PLAYLIST_APPEND"
-	// Remove all items from playlist.
-	cmdPlaylistClear = "PLAYLIST_CLEAR"
+	cmdBackward = "backward"
 	// Create new playlist.
-	cmdPlaylistCreate = "PLAYLIST_CREATE"
+	cmdCreatePlaylist = "create-playlist"
 	// Delete existing playlist.
-	cmdPlaylistDelete = "PLAYLIST_DELETE"
+	cmdDeletePlaylist = "delete-playlist"
+	// Seek playing track position forward.
+	cmdForward = "forward"
+	// Stop the server.
+	cmdKill = "kill"
+	// Show directory contents.
+	cmdList = "list"
+	// Play next track in the current playing playlist.
+	cmdNext = "next"
+	// Toggle paused state.
+	cmdPause = "pause"
+	// Do nothing, just returns "OK" response.
+	cmdPing = "ping"
+	// Play a path (track or directory) from VFS.
+	cmdPlay = "play"
+	// Add new track or folder to the end of the playlist.
+	cmdPlaylistAppend = "playlist-append"
+	// Remove all items from playlist.
+	cmdPlaylistClear = "playlist-clear"
+	// Delete items from playlist.
+	cmdPlaylistDelete = "playlist-delete"
 	// Show playlist tracks.
-	cmdPlaylistList = "PLAYLIST_LIST"
+	cmdPlaylistList = "playlist-list"
 	// Start playing given playlist.
-	cmdPlaylistPlay = "PLAYLIST_PLAY"
-	// Remove items from playlist.
-	cmdPlaylistRemove = "PLAYLIST_REMOVE"
+	cmdPlaylistPlay = "playlist-play"
+	// Move items inside playlist.
+	cmdPlaylistRemove = "playlist-move"
 	// Rename playlist.
-	cmdPlaylistRename = "PLAYLIST_RENAME"
-	// Show existing playlists.
-	cmdPlaylistsList = "PLAYLISTS_LIST"
+	cmdPlaylistRename = "rename-playlist"
+	// Show existing playlists list.
+	cmdPlaylists = "playlists"
 	// Play previous track in the current playling playlist.
-	cmdPrev = "PREV"
+	cmdPrev = "prev"
 	// Disconnect from server.
-	cmdQuit = "QUIT"
+	cmdQuit = "quit"
 	// Set/toggle repeat mode.
-	cmdRepeat = "REPEAT"
+	cmdRepeat = "repeat"
 	// Returns player's current state (playback status, volume, etc.).
-	cmdState = "STATE"
+	cmdStatus = "status"
+	// Stop playing if active.
+	cmdStop = "stop"
 	// Change volume level.
-	cmdVolumn = "VOLUME"
+	cmdVolumn = "volume"
 )
 
 type command struct {
@@ -90,7 +94,7 @@ func parseCommand(str string) (*command, error) {
 	}
 
 	switch name {
-	case cmdLs, cmdPlay, cmdPlaylistClear, cmdPlaylistCreate:
+	case cmdCreatePlaylist, cmdList, cmdPlay, cmdPlaylistClear:
 		fallthrough
 	case cmdPlaylistDelete, cmdPlaylistList:
 		// One string argument command.
@@ -106,7 +110,9 @@ func parseCommand(str string) (*command, error) {
 		}
 		args = []interface{}{name, path}
 		err = e
-	case cmdKill, cmdPing, cmdPlaylistsList, cmdQuit:
+	case cmdKill, cmdNext, cmdPause, cmdPing, cmdPlaylists:
+		// Argumentless command.
+	case cmdPrev, cmdQuit, cmdStop:
 		// Argumentless command.
 	default:
 		return nil, errors.New("unsupported command")
@@ -116,7 +122,6 @@ func parseCommand(str string) (*command, error) {
 		err = errors.New("to many arguments")
 	}
 	if err != nil {
-		fmt.Printf(":::%V\n", err)
 		return nil, fmt.Errorf("invalid command format")
 	}
 

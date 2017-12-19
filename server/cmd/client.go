@@ -68,8 +68,12 @@ func (c *Client) Serve() {
 			case cmdKill:
 				kill = true
 				quit = true
-			case cmdLs:
-				lines, err = c.ls(cmd.args[0].(string))
+			case cmdList:
+				lines, err = c.list(cmd.args[0].(string))
+			case cmdNext:
+				c.player.Next()
+			case cmdPause:
+				c.player.Pause()
 			case cmdPing:
 				// Do nothing.
 			case cmdPlay:
@@ -80,7 +84,7 @@ func (c *Client) Serve() {
 				err = c.append(name, path)
 			case cmdPlaylistClear:
 				err = c.player.Clear(cmd.args[0].(string))
-			case cmdPlaylistCreate:
+			case cmdCreatePlaylist:
 				err = c.player.Create(cmd.args[0].(string))
 			case cmdPlaylistDelete:
 				err = c.player.Delete(cmd.args[0].(string))
@@ -90,8 +94,12 @@ func (c *Client) Serve() {
 				oldName := cmd.args[0].(string)
 				newName := cmd.args[1].(string)
 				err = c.player.Rename(oldName, newName)
-			case cmdPlaylistsList:
+			case cmdPlaylists:
 				lines = c.playlists()
+			case cmdPrev:
+				c.player.Prev()
+			case cmdStop:
+				c.player.Stop()
 			case cmdQuit:
 				quit = true
 			default:
@@ -152,7 +160,7 @@ func (c *Client) append(name string, path string) error {
 	return c.player.Append(name, p)
 }
 
-func (c *Client) ls(path string) ([]string, error) {
+func (c *Client) list(path string) ([]string, error) {
 	p, err := vfs.NewPath(path)
 	if err != nil {
 		return nil, err
@@ -179,10 +187,9 @@ func (c *Client) playlist(name string) ([]string, error) {
 		return nil, err
 	}
 
-	tracks := plist.Tracks()
-	lines := make([]string, 0, tracks.Len())
-	for i := 0; i < tracks.Len(); i++ {
-		lines = append(lines, serialize.Track(tracks.Get(i)))
+	lines := make([]string, 0, plist.Len())
+	for i := 0; i < plist.Len(); i++ {
+		lines = append(lines, serialize.Track(plist.Get(i)))
 	}
 
 	return lines, nil

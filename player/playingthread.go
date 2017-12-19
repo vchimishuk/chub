@@ -47,7 +47,7 @@ const (
 type playingThread struct {
 	decoders     map[string]func() Decoder
 	output       Output
-	plist        *Tracks
+	plist        *Playlist
 	pos          int
 	msgChan      chan *message
 	state        state
@@ -81,7 +81,7 @@ func (pt *playingThread) Close() {
 	<-pt.msgChan
 }
 
-func (pt *playingThread) Play(plist *Tracks, pos int) {
+func (pt *playingThread) Play(plist *Playlist, pos int) {
 	pt.msgChan <- &message{cmd: cmdPlay, args: []interface{}{plist, pos}}
 }
 
@@ -97,7 +97,7 @@ func (pt *playingThread) Prev() {
 	pt.msgChan <- &message{cmd: cmdPrev, args: []interface{}{}}
 }
 
-func (pt *playingThread) SetPlaylist(plist *Tracks) {
+func (pt *playingThread) SetPlaylist(plist *Playlist) {
 	pt.msgChan <- &message{cmd: cmdPlist, args: []interface{}{plist}}
 }
 
@@ -113,12 +113,12 @@ func (pt *playingThread) loop() {
 		case msg := <-pt.msgChan:
 			switch msg.cmd {
 			case cmdPlist:
-				pt.setPlaylist(msg.args[0].(*Tracks))
+				pt.setPlaylist(msg.args[0].(*Playlist))
 				if pt.pos == -1 {
 					pt.stop()
 				}
 			case cmdPlay:
-				pt.setPlaylist(msg.args[0].(*Tracks))
+				pt.setPlaylist(msg.args[0].(*Playlist))
 				pt.play(msg.args[1].(int), false)
 			case cmdClose:
 				quit = true
@@ -127,12 +127,12 @@ func (pt *playingThread) loop() {
 				pt.stop()
 			case cmdPause:
 				if pt.state == statePlaying {
-					pt.stopBufAvailableChecker()
 					pt.output.Pause()
+					pt.stopBufAvailableChecker()
 					pt.state = statePaused
 				} else if pt.state == statePaused {
-					pt.startBufAvailableChecker()
 					pt.output.Pause()
+					pt.startBufAvailableChecker()
 					pt.state = statePlaying
 				}
 			case cmdNext, cmdPrev:
@@ -167,8 +167,12 @@ func (pt *playingThread) loop() {
 			read := 0
 
 			if !cur.Part || pt.decoder.Time() < cur.End {
-				read, _ = pt.decoder.Read(buf)
+				var err error
+				read, err = pt.decoder.Read(buf)
 				// TODO: Handle error.
+				if err != nil {
+					panic(err)
+				}
 			}
 			if read == 0 {
 				pt.play(pt.pos+1, true)
@@ -183,6 +187,9 @@ func (pt *playingThread) loop() {
 }
 
 func (pt *playingThread) play(pos int, smooth bool) {
+	if pt.plist.Len() == 0 {
+		return
+	}
 	if pos < 0 {
 		pos = pt.plist.Len() - 1
 	} else if pos >= pt.plist.Len() {
@@ -205,27 +212,23 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	// Do not reopen decoder if next track from the same physical file
 	// as a current one.
 	if !sameFile {
-		if pt.state == statePlaying {
+		if pt.state != stateStopped {
 			pt.decoder.Close()
+			pt.state = stateStopped
 		}
 
 		df := pt.decoders[track.Path.Ext()]
 		if df == nil {
-			pt.decoder.Close()
-			pt.state = stateStopped
 			// TODO: Skip this track and try next one.
 			panic("TODO:")
 		}
-		decoder := df()
-		err := decoder.Open(track.Path.File())
+		pt.decoder = df()
+		err := pt.decoder.Open(track.Path.File())
 		if err != nil {
-			pt.decoder.Close()
 			pt.state = stateStopped
 			// TODO: Skip this track and try next one.
 			panic("TODO:")
 		}
-
-		pt.decoder = decoder
 	}
 	if track.Part {
 		// Do not seek for just coming next tracks.
@@ -235,7 +238,11 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	}
 
 	if !pt.output.IsOpen() {
-		pt.output.Open() // TODO: Check errors.
+		err := pt.output.Open()
+		if err != nil {
+			// TODO: Some adequate error handling.
+			panic(err)
+		}
 	}
 	if !smooth {
 		pt.output.Reset()
@@ -265,21 +272,21 @@ func (pt *playingThread) stop() {
 	}
 }
 
-func (pt *playingThread) setPlaylist(plist *Tracks) {
+func (pt *playingThread) setPlaylist(plist *Playlist) {
 	// Try to find current track in new playlist.
 	if pt.state != stateStopped {
 		cur := pt.plist.Get(pt.pos)
 		pt.pos = -1
 		for i := 0; i < plist.Len(); i++ {
-			// Yes, compare pointers. It helps us handle
-			// track duplications in the playlist.
-			if plist.Get(i) == cur {
+			if plist.Get(i).Path.String() == cur.Path.String() {
 				pt.pos = i
 				break
 			}
 		}
 	}
-
+	if pt.pos == -1 {
+		pt.stop()
+	}
 	pt.plist = plist
 }
 

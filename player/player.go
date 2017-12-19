@@ -55,15 +55,18 @@ func New(fmts []Format, output Output) *Player {
 		}
 	}
 
+	pl := NewPlaylist(vfsPlaylistName)
 	p := &Player{
 		plists:   make(map[string]*Playlist),
-		vfsPlist: NewPlaylist(vfsPlaylistName),
+		vfsPlist: pl,
+		curPlist: pl,
 		decoders: decoders,
 		output:   output,
 		pt:       newPlayingThread(decoders, output),
 	}
 
 	p.pt.Start()
+	p.pt.SetPlaylist(pl)
 
 	return p
 }
@@ -112,7 +115,7 @@ func (p *Player) Play(path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
 
-	p.vfsPlist.Clear()
+	p.vfsPlist = p.vfsPlist.Clear_TEST()
 	for i, entry := range entries {
 		if !entry.IsDir() {
 			t := entry.(*vfs.Track)
@@ -122,11 +125,11 @@ func (p *Player) Play(path *vfs.Path) error {
 			} else if pos == -1 && *path == *t.Path {
 				pos = i
 			}
-			p.vfsPlist.Append(t)
+			p.vfsPlist = p.vfsPlist.Append_TEST(t)
 		}
 	}
 	p.curPlist = p.vfsPlist
-	p.pt.Play(p.curPlist.Tracks(), pos)
+	p.pt.Play(p.curPlist, pos)
 
 	return nil
 }
@@ -147,79 +150,79 @@ func (p *Player) Prev() {
 	p.pt.Prev()
 }
 
-func (p *Player) Append(plist string, path *vfs.Path) error {
+func (p *Player) Append(name string, path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
 
-	pl, err := p.playlist(plist)
+	pl, err := p.userPlist(name)
 	if err != nil {
 		return err
 	}
 
+	// TODO: Use walk style here to avoid extra array creation.
 	tracks, err := listDirRec(path)
 	if err != nil {
 		return err
 	}
-	pl.Append(tracks...)
-	if pl == p.curPlist {
-		p.pt.SetPlaylist(pl.Tracks())
-	}
+	p.replace(name, pl.Append_TEST(tracks...))
 
-	p.notify(PlaylistEvent, plist, tracks)
+	// TODO: Add new tracks parameter to notification,
+	//       so client can update his playlist version
+	//       without requesting new version.
+	//       The same for other similar functions.
+	// go p.notify(PlaylistEvent, plist)
 
 	return nil
 }
 
-func (p *Player) Clear(plist string) error {
+func (p *Player) Clear(name string) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
 
-	pl, err := p.playlist(plist)
+	pl, err := p.userPlist(name)
 	if err != nil {
 		return err
 	}
 
-	pl.Clear()
-	if pl == p.curPlist {
-		p.pt.SetPlaylist(pl.Tracks())
-	}
+	p.replace(name, pl.Clear_TEST())
 
-	p.notify(PlaylistEvent, plist, pl.Tracks())
+	go p.notify(PlaylistEvent, name)
 
 	return nil
 }
 
-func (p *Player) Create(plist string) error {
+func (p *Player) Create(name string) error {
 	p.plistsMu.Lock()
-	_, err := p.playlist(plist)
+	defer p.plistsMu.Unlock()
+
+	_, err := p.userPlist(name)
 	if err == nil {
-		p.plistsMu.Unlock()
-		return errors.New("playlist already exists")
+		return errors.New("already exists")
 	}
-	p.plists[plist] = NewPlaylist(plist)
-	p.plistsMu.Unlock()
 
-	p.notify(PlaylistsEvent, p.Playlists())
+	p.plists[name] = NewPlaylist(name)
+
+	// go p.notify(PlaylistsEvent, name)
 
 	return nil
 }
 
-func (p *Player) Delete(plist string) error {
+func (p *Player) Delete(name string) error {
 	p.plistsMu.Lock()
+	defer p.plistsMu.Unlock()
 
-	pl, err := p.playlist(plist)
+	pl, err := p.userPlist(name)
 	if err != nil {
-		p.plistsMu.Unlock()
 		return err
 	}
 
-	delete(p.plists, plist)
-	if pl == p.curPlist {
+	delete(p.plists, name)
+	if pl.Name() == p.curPlist.Name() {
 		p.pt.Stop()
+		p.curPlist = nil
 	}
-	p.plistsMu.Unlock()
 
-	p.notify(PlaylistsEvent, p.Playlists())
+	// TODO: go p.notify(PlaylistsEvent, p.Playlists())
 
 	return nil
 }
@@ -228,27 +231,26 @@ func (p *Player) Playlist(name string) (*Playlist, error) {
 	p.plistsMu.RLock()
 	defer p.plistsMu.RUnlock()
 
-	pl, err := p.playlist(name)
+	pl, err := p.userPlist(name)
 	if err != nil {
 		return nil, err
 	}
 
-	return pl.clone(), nil
+	return pl, nil
 }
 
 func (p *Player) Rename(from string, to string) error {
 	p.plistsMu.Lock()
+	defer p.plistsMu.Unlock()
 
-	pl, err := p.playlist(from)
+	pl, err := p.userPlist(from)
 	if err != nil {
-		p.plistsMu.Unlock()
 		return err
 	}
 
-	pl.SetName(to)
-	p.plistsMu.Unlock()
+	p.replace(from, pl.SetName(to))
 
-	p.notify(PlaylistsEvent, p.Playlists())
+	// go p.notify(PlaylistsEvent, p.Playlists())
 
 	return nil
 }
@@ -257,14 +259,35 @@ func (p *Player) Playlists() []*Playlist {
 	p.plistsMu.RLock()
 	defer p.plistsMu.RUnlock()
 
-	plists := make([]*Playlist, len(p.plists))
-	i := 0
+	plists := make([]*Playlist, 0, len(p.plists))
 	for _, pl := range p.plists {
-		plists[i] = pl.clone()
-		i++
+		plists = append(plists, pl)
 	}
 
 	return plists
+}
+
+func (p *Player) userPlist(name string) (*Playlist, error) {
+	if name == vfsPlaylistName {
+		return nil, errors.New("invalid playlist")
+	}
+
+	pl, ok := p.plists[name]
+	if !ok {
+		return nil, errors.New("invalid playlist")
+	}
+
+	return pl, nil
+}
+
+func (p *Player) replace(name string, pl *Playlist) {
+	delete(p.plists, name)
+
+	p.plists[pl.Name()] = pl
+	if p.curPlist.Name() == name {
+		p.curPlist = pl
+		p.pt.SetPlaylist(pl)
+	}
 }
 
 func (p *Player) notify(e Event, args ...interface{}) {
@@ -275,16 +298,6 @@ func (p *Player) notify(e Event, args ...interface{}) {
 		go func() {
 			n <- &NotifMsg{Event: e, Args: args}
 		}()
-	}
-}
-
-// playlist returns existing playlist by name.
-// This method must be guarded by player global lock.
-func (p *Player) playlist(name string) (*Playlist, error) {
-	if plist, ok := p.plists[name]; ok {
-		return plist, nil
-	} else {
-		return nil, errors.New("playlist not found")
 	}
 }
 
