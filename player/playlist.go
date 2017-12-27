@@ -45,7 +45,7 @@ func (pl *Playlist) Len() int {
 	return len(pl.tracks)
 }
 
-func (pl *Playlist) Clear_TEST() *Playlist {
+func (pl *Playlist) Clear() *Playlist {
 	return &Playlist{name: pl.name, duration: 0, tracks: nil}
 }
 
@@ -53,7 +53,7 @@ func (pl *Playlist) Get(i int) *vfs.Track {
 	return pl.tracks[i]
 }
 
-func (pl *Playlist) Append_TEST(tracks ...*vfs.Track) *Playlist {
+func (pl *Playlist) Append(tracks ...*vfs.Track) *Playlist {
 	t := make([]*vfs.Track, len(pl.tracks)+len(tracks))
 	copy(t, pl.tracks)
 	copy(t[len(pl.tracks):], tracks)

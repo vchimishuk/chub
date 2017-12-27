@@ -115,7 +115,7 @@ func (p *Player) Play(path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
 
-	p.vfsPlist = p.vfsPlist.Clear_TEST()
+	p.vfsPlist = p.vfsPlist.Clear()
 	for i, entry := range entries {
 		if !entry.IsDir() {
 			t := entry.(*vfs.Track)
@@ -125,7 +125,7 @@ func (p *Player) Play(path *vfs.Path) error {
 			} else if pos == -1 && *path == *t.Path {
 				pos = i
 			}
-			p.vfsPlist = p.vfsPlist.Append_TEST(t)
+			p.vfsPlist = p.vfsPlist.Append(t)
 		}
 	}
 	p.curPlist = p.vfsPlist
@@ -164,7 +164,7 @@ func (p *Player) Append(name string, path *vfs.Path) error {
 	if err != nil {
 		return err
 	}
-	p.replace(name, pl.Append_TEST(tracks...))
+	p.replace(name, pl.Append(tracks...))
 
 	// TODO: Add new tracks parameter to notification,
 	//       so client can update his playlist version
@@ -184,7 +184,7 @@ func (p *Player) Clear(name string) error {
 		return err
 	}
 
-	p.replace(name, pl.Clear_TEST())
+	p.replace(name, pl.Clear())
 
 	go p.notify(PlaylistEvent, name)
 
@@ -265,6 +265,31 @@ func (p *Player) Playlists() []*Playlist {
 	}
 
 	return plists
+}
+
+func (p *Player) State() State {
+	return p.pt.Status().State
+}
+
+func (p *Player) CurPlaylist() *Playlist {
+	p.plistsMu.RLock()
+	defer p.plistsMu.RUnlock()
+
+	return p.curPlist
+}
+
+func (p *Player) Track() *vfs.Track {
+	s := p.pt.Status()
+
+	return s.Plist.Get(s.PlistPos)
+}
+
+func (p *Player) PlaylistPos() int {
+	return p.pt.Status().PlistPos
+}
+
+func (p *Player) Pos() int {
+	return p.pt.Status().Pos
 }
 
 func (p *Player) userPlist(name string) (*Playlist, error) {

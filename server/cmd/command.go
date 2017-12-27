@@ -112,7 +112,7 @@ func parseCommand(str string) (*command, error) {
 		err = e
 	case cmdKill, cmdNext, cmdPause, cmdPing, cmdPlaylists:
 		// Argumentless command.
-	case cmdPrev, cmdQuit, cmdStop:
+	case cmdPrev, cmdQuit, cmdStatus, cmdStop:
 		// Argumentless command.
 	default:
 		return nil, errors.New("unsupported command")

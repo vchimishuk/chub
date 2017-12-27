@@ -19,6 +19,21 @@ package player
 
 import "time"
 
+type State int
+
+const (
+	StateStopped State = iota
+	StatePlaying
+	StatePaused
+)
+
+type Status struct {
+	State    State
+	Plist    *Playlist
+	PlistPos int
+	Pos      int
+}
+
 type command int
 
 const (
@@ -28,21 +43,15 @@ const (
 	cmdPlay
 	cmdPlist
 	cmdPrev
+	cmdStatus
 	cmdStop
 )
 
 type message struct {
 	cmd  command
 	args []interface{}
+	resp chan interface{}
 }
-
-type state int
-
-const (
-	stateStopped state = iota
-	statePlaying
-	statePaused
-)
 
 type playingThread struct {
 	decoders     map[string]func() Decoder
@@ -50,7 +59,7 @@ type playingThread struct {
 	plist        *Playlist
 	pos          int
 	msgChan      chan *message
-	state        state
+	state        State
 	decoder      Decoder
 	bufAvailable chan struct{}
 }
@@ -59,11 +68,12 @@ func newPlayingThread(decoders map[string]func() Decoder,
 	output Output) *playingThread {
 
 	return &playingThread{
-		decoders: decoders,
-		output:   output,
-		pos:      -1,
-		msgChan:  make(chan *message),
-		state:    stateStopped,
+		decoders:     decoders,
+		output:       output,
+		pos:          -1,
+		msgChan:      make(chan *message),
+		bufAvailable: make(chan struct{}),
+		state:        StateStopped,
 	}
 }
 
@@ -72,11 +82,11 @@ func (pt *playingThread) Start() {
 }
 
 func (pt *playingThread) Stop() {
-	pt.msgChan <- &message{cmd: cmdStop, args: []interface{}{}}
+	pt.msgChan <- &message{cmd: cmdStop}
 }
 
 func (pt *playingThread) Close() {
-	pt.msgChan <- &message{cmd: cmdClose, args: []interface{}{}}
+	pt.msgChan <- &message{cmd: cmdClose}
 	// Wait till loop() closes a channel before exit.
 	<-pt.msgChan
 }
@@ -86,19 +96,26 @@ func (pt *playingThread) Play(plist *Playlist, pos int) {
 }
 
 func (pt *playingThread) Pause() {
-	pt.msgChan <- &message{cmd: cmdPause, args: []interface{}{}}
+	pt.msgChan <- &message{cmd: cmdPause}
 }
 
 func (pt *playingThread) Next() {
-	pt.msgChan <- &message{cmd: cmdNext, args: []interface{}{}}
+	pt.msgChan <- &message{cmd: cmdNext}
 }
 
 func (pt *playingThread) Prev() {
-	pt.msgChan <- &message{cmd: cmdPrev, args: []interface{}{}}
+	pt.msgChan <- &message{cmd: cmdPrev}
 }
 
 func (pt *playingThread) SetPlaylist(plist *Playlist) {
 	pt.msgChan <- &message{cmd: cmdPlist, args: []interface{}{plist}}
+}
+
+func (pt *playingThread) Status() *Status {
+	m := &message{cmd: cmdStatus, resp: make(chan interface{})}
+	pt.msgChan <- m
+
+	return (<-m.resp).(*Status)
 }
 
 func (pt *playingThread) loop() {
@@ -126,14 +143,14 @@ func (pt *playingThread) loop() {
 			case cmdStop:
 				pt.stop()
 			case cmdPause:
-				if pt.state == statePlaying {
+				if pt.state == StatePlaying {
 					pt.output.Pause()
 					pt.stopBufAvailableChecker()
-					pt.state = statePaused
-				} else if pt.state == statePaused {
+					pt.state = StatePaused
+				} else if pt.state == StatePaused {
 					pt.output.Pause()
 					pt.startBufAvailableChecker()
-					pt.state = statePlaying
+					pt.state = StatePlaying
 				}
 			case cmdNext, cmdPrev:
 				var pos int
@@ -145,6 +162,8 @@ func (pt *playingThread) loop() {
 				}
 
 				pt.play(pos, false)
+			case cmdStatus:
+				msg.resp <- pt.status()
 			default:
 				panic("unsupported command")
 			}
@@ -153,32 +172,41 @@ func (pt *playingThread) loop() {
 			// of decoded data. Just wake up and decode some.
 		}
 
-		if pt.state == statePlaying {
-			// TODO: Log errors in debug mode here.
-			size, _ := pt.output.AvailUpdate()
-			// Do not allocate new buffer if old one is big enough.
-			if cap(buf) >= size {
-				buf = buf[:size]
-			} else {
-				buf = make([]byte, size)
-			}
-
-			cur := pt.plist.Get(pt.pos)
-			read := 0
-
-			if !cur.Part || pt.decoder.Time() < cur.End {
-				var err error
-				read, err = pt.decoder.Read(buf)
-				// TODO: Handle error.
-				if err != nil {
-					panic(err)
-				}
-			}
-			if read == 0 {
-				pt.play(pt.pos+1, true)
-			} else {
+		if pt.state == StatePlaying {
+			size, err := pt.output.AvailUpdate()
+			if err != nil {
 				// TODO: Error handling.
-				writeAll(pt.output, buf[:read])
+				panic(err)
+			}
+			if size > 0 {
+				// Do not allocate new buffer if old one
+				// is big enough.
+				if cap(buf) >= size {
+					buf = buf[:size]
+				} else {
+					buf = make([]byte, size)
+				}
+
+				cur := pt.plist.Get(pt.pos)
+				read := 0
+
+				if !cur.Part || pt.decoder.Time() < cur.End {
+					var err error
+					read, err = pt.decoder.Read(buf)
+					// TODO: Handle error.
+					if err != nil {
+						panic(err)
+					}
+				}
+				if read == 0 {
+					pt.play(pt.pos+1, true)
+				} else {
+					err := writeAll(pt.output, buf[:read])
+					if err != nil {
+						// TODO: Error handling.
+						panic(err)
+					}
+				}
 			}
 		}
 	}
@@ -195,7 +223,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	} else if pos >= pt.plist.Len() {
 		pos = 0
 	}
-	if pt.state != stateStopped {
+	if pt.state == StatePlaying {
 		pt.stopBufAvailableChecker()
 	}
 
@@ -203,7 +231,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	sameFile := false
 	upcoming := false
 
-	if pt.state == statePlaying {
+	if pt.state == StatePlaying {
 		cur := pt.plist.Get(pt.pos)
 		sameFile = cur.Path.File() == track.Path.File()
 		upcoming = cur.End == track.Start
@@ -212,9 +240,9 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	// Do not reopen decoder if next track from the same physical file
 	// as a current one.
 	if !sameFile {
-		if pt.state != stateStopped {
+		if pt.state != StateStopped {
 			pt.decoder.Close()
-			pt.state = stateStopped
+			pt.state = StateStopped
 		}
 
 		df := pt.decoders[track.Path.Ext()]
@@ -225,7 +253,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		pt.decoder = df()
 		err := pt.decoder.Open(track.Path.File())
 		if err != nil {
-			pt.state = stateStopped
+			pt.state = StateStopped
 			// TODO: Skip this track and try next one.
 			panic("TODO:")
 		}
@@ -237,6 +265,9 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		}
 	}
 
+	if !smooth && pt.output.IsOpen() {
+		pt.output.Close()
+	}
 	if !pt.output.IsOpen() {
 		err := pt.output.Open()
 		if err != nil {
@@ -244,9 +275,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 			panic(err)
 		}
 	}
-	if !smooth {
-		pt.output.Reset()
-	}
+
 	osr := pt.output.SampleRate()
 	och := pt.output.Channels()
 	dsr := pt.decoder.SampleRate()
@@ -257,24 +286,24 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	}
 
 	pt.pos = pos
-	pt.state = statePlaying
+	pt.state = StatePlaying
 	pt.startBufAvailableChecker()
 }
 
 func (pt *playingThread) stop() {
-	if pt.state != stateStopped {
+	if pt.state != StateStopped {
 		pt.stopBufAvailableChecker()
 		pt.output.Close()
 		pt.decoder.Close()
 		pt.plist = nil
 		pt.pos = -1
-		pt.state = stateStopped
+		pt.state = StateStopped
 	}
 }
 
 func (pt *playingThread) setPlaylist(plist *Playlist) {
 	// Try to find current track in new playlist.
-	if pt.state != stateStopped {
+	if pt.state != StateStopped {
 		cur := pt.plist.Get(pt.pos)
 		pt.pos = -1
 		for i := 0; i < plist.Len(); i++ {
@@ -290,20 +319,30 @@ func (pt *playingThread) setPlaylist(plist *Playlist) {
 	pt.plist = plist
 }
 
+func (pt *playingThread) status() *Status {
+	s := &Status{}
+	s.State = pt.state
+	s.Plist = pt.plist
+	s.PlistPos = pt.pos
+	if s.State != StateStopped {
+		s.Pos = pt.decoder.Time()
+	}
+
+	return s
+}
+
 func (pt *playingThread) startBufAvailableChecker() {
-	pt.bufAvailable = make(chan struct{})
-	go bufAvailableChecker(pt.output, pt.bufAvailable)
+	go bufAvailableChecker(pt, pt.output, pt.bufAvailable)
 }
 
 func (pt *playingThread) stopBufAvailableChecker() {
 	pt.bufAvailable <- struct{}{}
-	close(pt.bufAvailable)
 }
 
 // buffAvailableChecker monitors output buffer and signals via the given
 // channel when there is some free space available in the buffer, so player
 // can decode next piece of audio data and write it into the buffer.
-func bufAvailableChecker(output Output, ch chan struct{}) {
+func bufAvailableChecker(pt *playingThread, output Output, ch chan struct{}) {
 	for {
 		ready, err := output.Wait(100)
 		if err != nil {

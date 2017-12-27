@@ -98,6 +98,8 @@ func (c *Client) Serve() {
 				lines = c.playlists()
 			case cmdPrev:
 				c.player.Prev()
+			case cmdStatus:
+				lines = c.status()
 			case cmdStop:
 				c.player.Stop()
 			case cmdQuit:
@@ -203,4 +205,36 @@ func (c *Client) playlists() []string {
 	}
 
 	return lines
+}
+
+func (c *Client) status() []string {
+	s := c.player.State()
+
+	if s == player.StateStopped {
+		return []string{serialize.Map(map[string]interface{}{
+			"state": "stopped",
+		})}
+	} else {
+		var st string
+		if s == player.StatePlaying {
+			st = "playing"
+		} else if s == player.StatePaused {
+			st = "paused"
+		} else {
+			panic("invalid state")
+		}
+
+		p := c.player.CurPlaylist()
+		t := c.player.Track()
+
+		return []string{serialize.Map(map[string]interface{}{
+			"state":             st,
+			"playlist-name":     p.Name(),
+			"playlist-length":   p.Len(),
+			"playlist-position": c.player.PlaylistPos(),
+			"track-path":        t.Path.String(),
+			"track-position":    c.player.Pos(),
+			"track-length":      t.Length,
+		})}
+	}
 }
