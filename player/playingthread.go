@@ -199,7 +199,12 @@ func (pt *playingThread) loop() {
 					}
 				}
 				if read == 0 {
-					pt.play(pt.pos+1, true)
+					// TODO: Repeat support.
+					if pt.pos+1 < pt.plist.Len() {
+						pt.play(pt.pos+1, true)
+					} else {
+						pt.stop()
+					}
 				} else {
 					err := writeAll(pt.output, buf[:read])
 					if err != nil {
