@@ -94,7 +94,6 @@ func (p *Player) Close() {
 func (p *Player) Play(path *vfs.Path) error {
 	// Fill VFS playlist.
 	var dir *vfs.Path
-	var pos int = -1
 	if path.IsDir() {
 		dir = path
 	} else {
@@ -113,16 +112,16 @@ func (p *Player) Play(path *vfs.Path) error {
 	defer p.plistsMu.Unlock()
 
 	p.vfsPlist = p.vfsPlist.Clear()
-	for i, entry := range entries {
-		if !entry.IsDir() {
-			t := entry.(*vfs.Track)
-			// Find position to start.
-			if path.IsDir() && pos == -1 {
-				pos = 0
-			} else if pos == -1 && *path == *t.Path {
+	pos := 0
+	i := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			t := e.(*vfs.Track)
+			p.vfsPlist = p.vfsPlist.Append(t)
+			if *path == *t.Path {
 				pos = i
 			}
-			p.vfsPlist = p.vfsPlist.Append(t)
+			i++
 		}
 	}
 	p.curPlist = p.vfsPlist
