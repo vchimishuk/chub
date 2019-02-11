@@ -17,7 +17,13 @@
 
 package player
 
-import "time"
+import (
+	"io"
+	"strings"
+	"time"
+
+	"github.com/vchimishuk/chub/format"
+)
 
 type State int
 
@@ -54,21 +60,26 @@ type message struct {
 }
 
 type playingThread struct {
-	decoders     map[string]func() Decoder
+	fmts         map[string]format.Format
 	output       Output
 	plist        *Playlist
 	pos          int
 	msgChan      chan *message
 	state        State
-	decoder      Decoder
+	decoder      format.Decoder
 	bufAvailable chan struct{}
 }
 
-func newPlayingThread(decoders map[string]func() Decoder,
-	output Output) *playingThread {
+func newPlayingThread(fmts []format.Format, output Output) *playingThread {
+	fm := map[string]format.Format{}
+	for _, f := range fmts {
+		for _, e := range f.Extensions() {
+			fm[strings.ToLower(e)] = f
+		}
+	}
 
 	return &playingThread{
-		decoders:     decoders,
+		fmts:         fm,
 		output:       output,
 		pos:          -1,
 		msgChan:      make(chan *message),
@@ -119,8 +130,11 @@ func (pt *playingThread) Status() *Status {
 }
 
 func (pt *playingThread) loop() {
+	// Limit max buffer size because output.Write takes too long on large
+	// buffer, which cause client commands processing lag.
+	const maxBufSize = 4096
 	var quit bool = false
-	var buf []byte
+	var buf [maxBufSize]byte
 
 	// TODO: Close decoder on prev/next, stop, etc.
 	for !quit {
@@ -179,12 +193,8 @@ func (pt *playingThread) loop() {
 				panic(err)
 			}
 			if size > 0 {
-				// Do not allocate new buffer if old one
-				// is big enough.
-				if cap(buf) >= size {
-					buf = buf[:size]
-				} else {
-					buf = make([]byte, size)
+				if size > len(buf) {
+					size = len(buf)
 				}
 
 				cur := pt.plist.Get(pt.pos)
@@ -192,10 +202,11 @@ func (pt *playingThread) loop() {
 
 				if !cur.Part || pt.decoder.Time() < cur.End {
 					var err error
-					read, err = pt.decoder.Read(buf)
-					// TODO: Handle error.
+					read, err = pt.decoder.Read(buf[:size])
 					if err != nil {
-						panic(err)
+						// Ignore errors and treat them as
+						// end of the file.
+						read = 0
 					}
 				}
 				if read == 0 {
@@ -250,18 +261,18 @@ func (pt *playingThread) play(pos int, smooth bool) {
 			pt.state = StateStopped
 		}
 
-		df := pt.decoders[track.Path.Ext()]
-		if df == nil {
+		f := pt.fmts[track.Path.Ext()]
+		if f == nil {
 			// TODO: Skip this track and try next one.
 			panic("TODO:")
 		}
-		pt.decoder = df()
-		err := pt.decoder.Open(track.Path.File())
+		d, err := f.Decoder(track.Path.File())
 		if err != nil {
 			pt.state = StateStopped
 			// TODO: Skip this track and try next one.
 			panic("TODO:")
 		}
+		pt.decoder = d
 	}
 	if track.Part {
 		// Do not seek for just coming next tracks.
@@ -297,7 +308,9 @@ func (pt *playingThread) play(pos int, smooth bool) {
 
 func (pt *playingThread) stop() {
 	if pt.state != StateStopped {
-		pt.stopBufAvailableChecker()
+		if pt.state == StatePlaying {
+			pt.stopBufAvailableChecker()
+		}
 		pt.output.Close()
 		pt.decoder.Close()
 		pt.plist = nil
@@ -367,4 +380,16 @@ func bufAvailableChecker(pt *playingThread, output Output, ch chan struct{}) {
 			}
 		}
 	}
+}
+
+func writeAll(w io.Writer, buf []byte) error {
+	for len(buf) > 0 {
+		n, err := w.Write(buf)
+		if err != nil {
+			return err
+		}
+		buf = buf[n:]
+	}
+
+	return nil
 }

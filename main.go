@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	"github.com/vchimishuk/chub/alsa"
-	"github.com/vchimishuk/chub/flac"
-	"github.com/vchimishuk/chub/mp3"
+	"github.com/vchimishuk/chub/format"
+	"github.com/vchimishuk/chub/format/ffmpeg"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/server/cmd"
 	"github.com/vchimishuk/chub/server/notif"
@@ -30,27 +30,32 @@ import (
 )
 
 func main() {
+	ffmpegFmt := ffmpeg.NewFormat()
+
 	// Initialize VFS.
-	vfs.RegisterFormat(flac.Format)
-	vfs.RegisterFormat(mp3.Format)
+	// vfs.RegisterFormat(flac.Format)
+	// vfs.RegisterFormat(mp3.Format)
+	format.Register(ffmpegFmt)
 
-	vfs.SetRoot("/home/viacheslav/projects/chubd_music")
-
-	fmts := []player.Format{
-		flac.Format,
-		mp3.Format,
+	err := vfs.SetRoot("/home/vchimishuk/server/Heavy Metal")
+	if err != nil {
+		panic(err)
 	}
 
+	// fmts := []player.Format{
+	// 	flac.Format,
+	// 	mp3.Format,
+	// }
 	output := alsa.New()
-	pl := player.New(fmts, output)
+	pl := player.New([]format.Format{ffmpegFmt}, output)
 
 	notifSrv := notif.NewServer(pl)
-	notifSrv.Listen("localhost", 8889)
+	notifSrv.Listen("127.0.0.1", 5225)
 	fmt.Println("Notification server started")
 	go notifSrv.Serve()
 
 	cmdSrv := cmd.NewServer(pl)
-	cmdSrv.Listen("localhost", 8888)
+	cmdSrv.Listen("127.0.0.1", 5115)
 	fmt.Println("Command server started")
 	cmdSrv.Serve()
 	fmt.Println("Command server stopped")

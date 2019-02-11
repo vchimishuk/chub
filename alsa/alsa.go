@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-// alsa output driver implementation.
+// ALSA output driver.
 package alsa
 
 import "github.com/vchimishuk/chub/alsa/asoundlib"

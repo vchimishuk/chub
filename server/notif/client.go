@@ -26,25 +26,27 @@ import (
 	"github.com/vchimishuk/chub/vfs"
 )
 
+type responseLine map[string]interface{}
+
 type Client struct {
-	conn    *cnet.TextConn
-	notif   chan *player.NotifMsg
-	close   chan struct{}
-	onClose func(*Client, bool)
+	conn       *cnet.TextConn
+	noticeChan <-chan *player.Notice
+	close      chan struct{}
+	onClose    func(*Client, bool)
 }
 
-func newClient(conn net.Conn, notif chan *player.NotifMsg) *Client {
+func newClient(conn net.Conn, noticeChan <-chan *player.Notice) *Client {
 	return &Client{
-		conn:  cnet.NewTextConn(conn),
-		notif: notif,
-		close: make(chan struct{}, 1),
+		conn:       cnet.NewTextConn(conn),
+		noticeChan: noticeChan,
+		close:      make(chan struct{}, 1),
 	}
 }
 
 func (c *Client) Serve() {
 	for {
 		select {
-		case msg := <-c.notif:
+		case msg := <-c.noticeChan:
 			c.notify(msg)
 		case <-c.close:
 			break
@@ -63,21 +65,28 @@ func (c *Client) SetOnClose(handler func(*Client, bool)) {
 	c.onClose = handler
 }
 
-func (c *Client) notify(msg *player.NotifMsg) {
+func (c *Client) notify(msg *player.Notice) {
 	c.conn.WriteLine(string(msg.Event))
 
+	var lines []responseLine
+
 	switch msg.Event {
-	case player.PlaylistEvent:
-		name := msg.Args[0].(string)
-		tracks := msg.Args[1].([]*vfs.Track)
-		c.playlist(name, tracks)
-	case player.PlaylistsEvent:
-		plists := msg.Args[0].([]*player.Playlist)
-		c.playlists(plists)
+	case player.EventStatus:
+		lines = c.status(msg.Args[0].(*player.Status))
+	// case player.PlaylistEvent:
+	// 	name := msg.Args[0].(string)
+	// 	tracks := msg.Args[1].([]*vfs.Track)
+	// 	c.playlist(name, tracks)
+	// case player.PlaylistsEvent:
+	// 	plists := msg.Args[0].([]*player.Playlist)
+	// 	c.playlists(plists)
 	default:
 		panic("unsupported event")
 	}
 
+	for _, l := range lines {
+		c.conn.WriteLine(serialize.Map(l))
+	}
 	c.conn.WriteLine("")
 	c.conn.Flush()
 }
@@ -92,5 +101,37 @@ func (c *Client) playlist(name string, tracks []*vfs.Track) {
 	c.conn.WriteLine(name)
 	for _, t := range tracks {
 		c.conn.WriteLine(serialize.Track(t))
+	}
+}
+
+func (c *Client) status(st *player.Status) []responseLine {
+	if st.State == player.StateStopped {
+		return []responseLine{{"state": "stopped"}}
+	} else {
+		s := ""
+		if st.State == player.StatePlaying {
+			s = "playing"
+		} else if st.State == player.StatePaused {
+			s = "paused"
+		} else {
+			panic("invalid state")
+		}
+
+		track := st.Plist.Get(st.PlistPos)
+
+		return []responseLine{
+			{"state": s},
+			{"playlist-position": st.PlistPos},
+			{"track-position": st.Pos},
+			{"playlist-name": st.Plist.Name()},
+			{"playlist-duration": st.Plist.Duration()},
+			{"playlist-length": st.Plist.Len()},
+			{"track-path": track.Path.String()},
+			{"track-artist": track.Tag.Artist},
+			{"track-album": track.Tag.Album},
+			{"track-title": track.Tag.Title},
+			{"track-number": track.Tag.Number},
+			{"track-length": track.Length},
+		}
 	}
 }

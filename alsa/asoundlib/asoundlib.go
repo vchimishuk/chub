@@ -51,7 +51,7 @@ const (
 	// Signed 16 bit Little Endian
 	SampleFormatS16LE = C.SND_PCM_FORMAT_S16_LE
 	// Signed 16 bit Big Endian
-	SampleFromatS16BE = C.SND_PCM_FORMAT_S16_BE
+	SampleFormatS16BE = C.SND_PCM_FORMAT_S16_BE
 	// Unsigned 16 bit Little Endian
 	SampleFormatU16LE = C.SND_PCM_FORMAT_U16_LE
 	// Unsigned 16 bit Big Endian
@@ -152,47 +152,39 @@ func (handle *Handle) ApplyHwParams() error {
 		return fmt.Errorf("Cannot allocate hardware parameter structure. %s",
 			strError(err))
 	}
-
 	err = C.snd_pcm_hw_params_any(handle.cHandle, cHwParams)
 	if err < 0 {
 		return fmt.Errorf("Cannot initialize hardware parameter structure. %s",
 			strError(err))
 	}
-
 	err = C.snd_pcm_hw_params_set_access(handle.cHandle, cHwParams, C.SND_PCM_ACCESS_RW_INTERLEAVED)
 	if err < 0 {
 		return fmt.Errorf("Cannot set access type. %s",
 			strError(err))
 	}
-
 	err = C.snd_pcm_hw_params_set_format(handle.cHandle, cHwParams, C.snd_pcm_format_t(handle.SampleFormat))
 	if err < 0 {
 		return fmt.Errorf("Cannot set sample format. %s",
 			strError(err))
 	}
-
 	var cSampleRate _Ctype_uint = _Ctype_uint(handle.SampleRate)
 	err = C.snd_pcm_hw_params_set_rate_near(handle.cHandle, cHwParams, &cSampleRate, nil)
 	if err < 0 {
 		return fmt.Errorf("Cannot set sample rate. %s",
 			strError(err))
 	}
-
 	err = C.snd_pcm_hw_params_set_channels(handle.cHandle, cHwParams, _Ctype_uint(handle.Channels))
 	if err < 0 {
 		return fmt.Errorf("Cannot set number of channels. %s",
 			strError(err))
 	}
-
 	// Drain current data and make sure we aren't underrun.
 	C.snd_pcm_drain(handle.cHandle)
-
 	err = C.snd_pcm_hw_params(handle.cHandle, cHwParams)
 	if err < 0 {
 		return fmt.Errorf("Cannot set hardware parameters. %s",
 			strError(err))
 	}
-
 	C.snd_pcm_hw_params_free(cHwParams)
 
 	return nil
@@ -213,6 +205,13 @@ func (handle *Handle) Wait(maxDelay int) (ok bool, err error) {
 // AvailUpdate returns number of bytes ready to be read/written.
 func (handle *Handle) AvailUpdate() (freeBytes int, err error) {
 	frames := C.snd_pcm_avail_update(handle.cHandle)
+	if frames == -C.EPIPE {
+		e := handle.tryRecover(_Ctype_int(frames))
+		if e < 0 {
+			return 0, fmt.Errorf("avail updated: %s", strError(e))
+		}
+		frames = C.snd_pcm_avail_update(handle.cHandle)
+	}
 	if frames < 0 {
 		return 0, fmt.Errorf("Retriving free buffer size failed. %s", strError(_Ctype_int(frames)))
 	}
@@ -223,15 +222,17 @@ func (handle *Handle) AvailUpdate() (freeBytes int, err error) {
 // Write writes given PCM data.
 // Returns wrote value is total bytes was written.
 func (handle *Handle) Write(buf []byte) (wrote int, err error) {
-	frames := len(buf) / handle.SampleSize() / handle.Channels
-	w := C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
-
-	// Underrun? Retry.
-	if w == -C.EPIPE {
-		C.snd_pcm_prepare(handle.cHandle)
-		w = C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
+	if len(buf) == 0 {
+		return 0, nil
 	}
 
+	frames := len(buf) / handle.SampleSize() / handle.Channels
+	w := C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
+	// Underrun? Retry.
+	if w == -C.EPIPE {
+		handle.tryRecover(_Ctype_int(w))
+		w = C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
+	}
 	if w < 0 {
 		return 0, fmt.Errorf("Write failed. %s", strError(_Ctype_int(w)))
 	}
@@ -258,9 +259,12 @@ func (handle *Handle) Pause() error {
 	}
 
 	err := C.snd_pcm_pause(handle.cHandle, C.int(pause))
-
 	if err != 0 {
 		return fmt.Errorf("Pause failed. %s", strError(err))
+	}
+	err = C.snd_pcm_prepare(handle.cHandle)
+	if err != 0 {
+		return fmt.Errorf("prepare failed: %s", strError(err))
 	}
 
 	return nil
@@ -281,7 +285,7 @@ func (handle *Handle) SampleSize() int {
 	switch handle.SampleFormat {
 	case SampleFormatS8, SampleFormatU8:
 		return 1
-	case SampleFormatS16LE, SampleFromatS16BE,
+	case SampleFormatS16LE, SampleFormatS16BE,
 		SampleFormatU16LE, SampleFormatU16BE:
 		return 2
 	}
@@ -292,6 +296,16 @@ func (handle *Handle) SampleSize() int {
 // FrameSize returns size of one frame in bytes.
 func (handle *Handle) FrameSize() int {
 	return handle.SampleSize() * handle.Channels
+}
+
+func (h *Handle) tryRecover(err _Ctype_int) _Ctype_int {
+	e := C.snd_pcm_recover(h.cHandle, err, 1)
+	if e < 0 {
+		return e
+	}
+	e = C.snd_pcm_prepare(h.cHandle)
+
+	return e
 }
 
 // strError retruns string description of ALSA error by its code.

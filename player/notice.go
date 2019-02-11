@@ -20,13 +20,11 @@ package player
 type Event string
 
 const (
-	PlaylistEvent  Event = "PLAYLIST"
-	PlaylistsEvent Event = "PLAYLISTS"
-	TrackEvent     Event = "TRACK"
-	VolumeEvent    Event = "VOLUME"
+	EventStatus Event = "status"
+	EventVolume Event = "volume"
 )
 
-type NotifMsg struct {
+type Notice struct {
 	Event Event
 	Args  []interface{}
 }

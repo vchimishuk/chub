@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/vchimishuk/chub/cue"
+	"github.com/vchimishuk/chub/format"
 )
 
 const cueExt = "cue"
@@ -155,6 +156,7 @@ func (p *Path) List() ([]Entry, error) {
 		return nil, fmt.Errorf("'%s' is not directory", p)
 	}
 
+	// TODO: Join readDirs and readTracks.
 	dirs, err := readDirs(p)
 	if err != nil {
 		return nil, err
@@ -268,13 +270,11 @@ func readTracks(p *Path) ([]Entry, error) {
 		if err != nil {
 			// TODO: Log ignored file.
 		} else {
-			ext := strings.ToLower(pp.Ext())
-			if format(ext) != nil {
-				track, err := pp.Track()
-				if err != nil {
-					panic("not track")
-				}
-				tracks = append(tracks, track)
+			t, err := pp.Track()
+			// Ignore invalid and unsupported tracks.
+			if err == nil {
+				tracks = append(tracks, t)
+
 			}
 		}
 	}
@@ -286,11 +286,6 @@ func cueSheetTracks(base *Path, sheet *cue.Sheet) ([]Entry, error) {
 	tracks := make([]Entry, 0)
 
 	for fileNum, file := range sheet.Files {
-		f := format(ext(file.Name))
-		if f == nil {
-			continue
-		}
-
 		for _, track := range file.Tracks {
 			t, err := cueSheetFileTrack(base, sheet,
 				fileNum, track.Number)
@@ -340,11 +335,12 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 		}
 		end = ii.Time.Seconds()
 	} else {
-		format := format(ext(f.Name))
-		if format == nil {
-			return nil, errors.New("unsupported format")
+		// TODO: Register formats in VFS package.
+		md, err := format.GetMetadata(pth.File())
+		if err != nil {
+			return nil, err
 		}
-		end = format.Length(pth.File())
+		end = md.Length()
 	}
 
 	return &Track{
@@ -359,11 +355,6 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 }
 
 func newTrack(p *Path) (*Track, error) {
-	f := format(p.Ext())
-	if f == nil {
-		return nil, errors.New("unsupported format")
-	}
-
 	if p.part {
 		sheet, err := cueSheetForFile(p)
 		// Without CUE information we do not know where track
@@ -392,22 +383,21 @@ func newTrack(p *Path) (*Track, error) {
 
 		return nil, errors.New("track not found")
 	} else {
-		var err error
-
-		tag, err := f.Tag(p.File())
+		md, err := format.GetMetadata(p.File())
 		if err != nil {
-			tag = &Tag{
-				Artist: "",
-				Album:  "",
-				Title:  p.Base(),
-				Number: 0,
-			}
+			return nil, err
 		}
 
+		// TODO: Track without tags?
 		return &Track{
-			Path:   p,
-			Tag:    tag,
-			Length: f.Length(p.File()),
+			Path: p,
+			Tag: &Tag{
+				Artist: md.Artist(),
+				Album:  md.Album(),
+				Title:  md.Title(),
+				Number: md.Number(),
+			},
+			Length: md.Length(),
 		}, nil
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/vchimishuk/chub/format"
 	"github.com/vchimishuk/chub/vfs"
 )
 
@@ -28,41 +29,27 @@ const (
 	vfsPlaylistName = "*vfs*"
 )
 
-type Format interface {
-	Extensions() []string
-	Decoder() Decoder
-}
-
 type Player struct {
 	// Mutex guards plists, vfsPlist and curPlist fields.
 	// Any manipulation on that fields should be guarded with this mutex.
-	plistsMu sync.RWMutex
-	plists   map[string]*Playlist
-	vfsPlist *Playlist
-	curPlist *Playlist
-	decoders map[string]func() Decoder
-	output   Output
-	pt       *playingThread
-	notifsMu sync.RWMutex // Guards next field.
-	notifs   []chan *NotifMsg
+	plistsMu      sync.RWMutex
+	plists        map[string]*Playlist
+	vfsPlist      *Playlist
+	curPlist      *Playlist
+	output        Output
+	pt            *playingThread
+	noticeChansMu sync.RWMutex
+	noticeChans   []chan *Notice
 }
 
-func New(fmts []Format, output Output) *Player {
-	decoders := make(map[string]func() Decoder)
-	for _, f := range fmts {
-		for _, ext := range f.Extensions() {
-			decoders[ext] = f.Decoder
-		}
-	}
-
+func New(fmts []format.Format, output Output) *Player {
 	pl := NewPlaylist(vfsPlaylistName)
 	p := &Player{
 		plists:   make(map[string]*Playlist),
 		vfsPlist: pl,
 		curPlist: pl,
-		decoders: decoders,
 		output:   output,
-		pt:       newPlayingThread(decoders, output),
+		pt:       newPlayingThread(fmts, output),
 	}
 
 	p.pt.Start()
@@ -71,26 +58,36 @@ func New(fmts []Format, output Output) *Player {
 	return p
 }
 
-func (p *Player) AddNotifier(notif chan *NotifMsg) {
-	p.notifsMu.Lock()
-	defer p.notifsMu.Unlock()
+func (p *Player) NoticeChan() <-chan *Notice {
+	p.noticeChansMu.Lock()
+	defer p.noticeChansMu.Unlock()
+	ch := make(chan *Notice)
+	p.noticeChans = append(p.noticeChans, ch)
 
-	p.notifs = append(p.notifs, notif)
+	return ch
 }
 
-func (p *Player) RemoveNotifier(notif chan *NotifMsg) {
-	p.notifsMu.Lock()
-	defer p.notifsMu.Unlock()
+func (p *Player) NoticeChanClose(ch <-chan *Notice) {
+	p.noticeChansMu.Lock()
+	defer p.noticeChansMu.Unlock()
 
-	for i, n := range p.notifs {
-		if n == notif {
-			p.notifs = append(p.notifs[:i], p.notifs[i+1:]...)
+	for i, c := range p.noticeChans {
+		if c == ch {
+			p.noticeChans = append(p.noticeChans[:i],
+				p.noticeChans[i+1:]...)
+			close(c)
 			break
 		}
 	}
 }
 
 func (p *Player) Close() {
+	p.noticeChansMu.Lock()
+	defer p.noticeChansMu.Unlock()
+	for _, ch := range p.noticeChans {
+		close(ch)
+	}
+
 	p.pt.Close()
 }
 
@@ -130,16 +127,20 @@ func (p *Player) Play(path *vfs.Path) error {
 	}
 	p.curPlist = p.vfsPlist
 	p.pt.Play(p.curPlist, pos)
+	p.notify(EventStatus, p.pt.Status())
 
 	return nil
 }
 
 func (p *Player) Stop() {
 	p.pt.Stop()
+	p.notify(EventStatus, p.pt.Status())
 }
 
 func (p *Player) Pause() {
 	p.pt.Pause()
+	st := p.pt.Status()
+	p.notify(EventStatus, st)
 }
 
 func (p *Player) Next() {
@@ -183,10 +184,7 @@ func (p *Player) Clear(name string) error {
 	if err != nil {
 		return err
 	}
-
 	p.replace(name, pl.Clear())
-
-	go p.notify(PlaylistEvent, name)
 
 	return nil
 }
@@ -267,29 +265,8 @@ func (p *Player) Playlists() []*Playlist {
 	return plists
 }
 
-func (p *Player) State() State {
-	return p.pt.Status().State
-}
-
-func (p *Player) CurPlaylist() *Playlist {
-	p.plistsMu.RLock()
-	defer p.plistsMu.RUnlock()
-
-	return p.curPlist
-}
-
-func (p *Player) Track() *vfs.Track {
-	s := p.pt.Status()
-
-	return s.Plist.Get(s.PlistPos)
-}
-
-func (p *Player) PlaylistPos() int {
-	return p.pt.Status().PlistPos
-}
-
-func (p *Player) Pos() int {
-	return p.pt.Status().Pos
+func (p *Player) Status() *Status {
+	return p.pt.Status()
 }
 
 func (p *Player) userPlist(name string) (*Playlist, error) {
@@ -316,14 +293,16 @@ func (p *Player) replace(name string, pl *Playlist) {
 }
 
 func (p *Player) notify(e Event, args ...interface{}) {
-	p.notifsMu.RLock()
-	defer p.notifsMu.RUnlock()
+	go func() {
+		p.noticeChansMu.RLock()
+		defer p.noticeChansMu.RUnlock()
 
-	for _, n := range p.notifs {
-		go func() {
-			n <- &NotifMsg{Event: e, Args: args}
-		}()
-	}
+		for _, ch := range p.noticeChans {
+			go func() {
+				ch <- &Notice{Event: e, Args: args}
+			}()
+		}
+	}()
 }
 
 func listDirRec(path *vfs.Path) ([]*vfs.Track, error) {

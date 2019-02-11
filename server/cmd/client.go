@@ -207,34 +207,40 @@ func (c *Client) playlists() []string {
 	return lines
 }
 
+// TODO: Return slice of maps and let the caller to serialize it.
 func (c *Client) status() []string {
-	s := c.player.State()
+	st := c.player.Status()
 
-	if s == player.StateStopped {
+	//	s := c.player.State()
+
+	if st.State == player.StateStopped {
 		return []string{serialize.Map(map[string]interface{}{
 			"state": "stopped",
 		})}
 	} else {
-		var st string
-		if s == player.StatePlaying {
-			st = "playing"
-		} else if s == player.StatePaused {
-			st = "paused"
+		var s string
+		if st.State == player.StatePlaying {
+			s = "playing"
+		} else if st.State == player.StatePaused {
+			s = "paused"
 		} else {
 			panic("invalid state")
 		}
-
-		p := c.player.CurPlaylist()
-		t := c.player.Track()
+		track := st.Plist.Get(st.PlistPos)
 
 		return []string{serialize.Map(map[string]interface{}{
-			"state":             st,
-			"playlist-name":     p.Name(),
-			"playlist-length":   p.Len(),
-			"playlist-position": c.player.PlaylistPos(),
-			"track-path":        t.Path.String(),
-			"track-position":    c.player.Pos(),
-			"track-length":      t.Length,
+			"state":             s,
+			"playlist-position": st.PlistPos,
+			"track-position":    st.Pos,
+			"playlist-name":     st.Plist.Name(),
+			"playlist-duration": st.Plist.Duration(),
+			"playlist-length":   st.Plist.Len(),
+			"track-path":        track.Path.String(),
+			"track-artist":      track.Tag.Artist,
+			"track-album":       track.Tag.Album,
+			"track-title":       track.Tag.Title,
+			"track-number":      track.Tag.Number,
+			"track-length":      track.Length,
 		})}
 	}
 }

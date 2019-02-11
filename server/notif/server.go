@@ -31,13 +31,10 @@ type Server struct {
 func NewServer(p *player.Player) *Server {
 	srv := cnet.NewServer()
 	srv.SetOnClient(func(conn net.Conn) cnet.Client {
-		n := make(chan *player.NotifMsg)
-
-		p.AddNotifier(n)
-
-		c := newClient(conn, n)
+		ch := p.NoticeChan()
+		c := newClient(conn, ch)
 		c.SetOnClose(func(cl *Client, kill bool) {
-			p.RemoveNotifier(n)
+			p.NoticeChanClose(ch)
 			srv.RemoveClient(cl)
 		})
 		go c.Serve()
