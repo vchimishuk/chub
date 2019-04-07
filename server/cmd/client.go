@@ -21,23 +21,28 @@ import (
 	"errors"
 	"net"
 	"os"
+	"sync"
 
+	"github.com/vchimishuk/chub/cnet"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/serialize"
 	"github.com/vchimishuk/chub/vfs"
 )
 
 type Client struct {
-	conn    *ClientConn
-	player  *player.Player
-	close   chan interface{}
-	onClose func(*Client, bool)
+	conn     *CmdConn
+	srv      *cnet.Server
+	player   *player.Player
+	close    chan interface{}
+	closedMu sync.Mutex
+	closed   bool
 }
 
-func newClient(conn net.Conn, pl *player.Player) *Client {
+func NewClient(conn net.Conn, srv *cnet.Server, p *player.Player) *Client {
 	return &Client{
-		conn:   newClientConn(conn),
-		player: pl,
+		conn:   newCmdConn(conn),
+		srv:    srv,
+		player: p,
 		close:  make(chan interface{}, 1),
 	}
 }
@@ -47,7 +52,6 @@ func (c *Client) Serve() {
 	c.conn.WriteLine("")
 	c.conn.Flush()
 
-	kill := false
 	quit := false
 
 	for !quit {
@@ -66,8 +70,8 @@ func (c *Client) Serve() {
 
 			switch cmd.name {
 			case cmdKill:
-				kill = true
 				quit = true
+				go c.srv.Close()
 			case cmdList:
 				lines, err = c.list(cmd.args[0].(string))
 			case cmdNext:
@@ -127,21 +131,29 @@ func (c *Client) Serve() {
 		}
 	}
 
+	c.closedMu.Lock()
+	c.closed = true
+	c.closedMu.Unlock()
 	c.conn.Close()
 	c.close <- struct{}{}
-	if c.onClose != nil {
-		c.onClose(c, kill)
-	}
 }
 
-func (c *Client) Close() {
+func (c *Client) Close() error {
 	// Close connection to wake Server() up from blocking Read() or Write().
-	c.conn.Close()
+	err := c.conn.Close()
 	<-c.close
+	c.closedMu.Lock()
+	c.closed = true
+	c.closedMu.Unlock()
+
+	return err
 }
 
-func (c *Client) SetOnClose(handler func(*Client, bool)) {
-	c.onClose = handler
+func (c *Client) IsClosed() bool {
+	c.closedMu.Lock()
+	defer c.closedMu.Unlock()
+
+	return c.closed
 }
 
 func (c *Client) play(path string) error {

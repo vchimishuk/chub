@@ -24,15 +24,15 @@ import (
 	"github.com/vchimishuk/chub/cnet"
 )
 
-type ClientConn struct {
+type CmdConn struct {
 	*cnet.TextConn
 }
 
-func newClientConn(conn net.Conn) *ClientConn {
-	return &ClientConn{TextConn: cnet.NewTextConn(conn)}
+func newCmdConn(conn net.Conn) *CmdConn {
+	return &CmdConn{TextConn: cnet.NewTextConn(conn)}
 }
 
-func (c *ClientConn) WriteOkResp(lines []string) error {
+func (c *CmdConn) WriteOkResp(lines []string) error {
 	_, err := c.WriteLine("OK")
 
 	for _, line := range lines {
@@ -50,7 +50,7 @@ func (c *ClientConn) WriteOkResp(lines []string) error {
 	return err
 }
 
-func (c *ClientConn) WriteErrorResp(e error) error {
+func (c *CmdConn) WriteErrorResp(e error) error {
 	_, err := c.WriteLine(fmt.Sprintf("ERR %s", e.Error()))
 	if err != nil {
 		return err

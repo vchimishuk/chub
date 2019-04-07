@@ -19,60 +19,57 @@ package notif
 
 import (
 	"net"
+	"sync"
 
 	"github.com/vchimishuk/chub/cnet"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/serialize"
-	"github.com/vchimishuk/chub/vfs"
 )
 
 type responseLine map[string]interface{}
 
 type Client struct {
-	conn       *cnet.TextConn
-	noticeChan <-chan *player.Notice
-	close      chan struct{}
-	onClose    func(*Client, bool)
+	conn     *cnet.TextConn
+	closedMu sync.Mutex
+	closed   bool
 }
 
-func newClient(conn net.Conn, noticeChan <-chan *player.Notice) *Client {
-	return &Client{
-		conn:       cnet.NewTextConn(conn),
-		noticeChan: noticeChan,
-		close:      make(chan struct{}, 1),
-	}
+func NewClient(conn net.Conn) *Client {
+	return &Client{conn: cnet.NewTextConn(conn)}
+}
+
+func (c *Client) Close() error {
+	c.closedMu.Lock()
+	err := c.conn.Close()
+	c.closed = true
+	c.closedMu.Unlock()
+
+	return err
 }
 
 func (c *Client) Serve() {
-	for {
-		select {
-		case msg := <-c.noticeChan:
-			c.notify(msg)
-		case <-c.close:
-			break
-		}
+
+}
+
+func (c *Client) IsClosed() bool {
+	c.closedMu.Lock()
+	defer c.closedMu.Unlock()
+
+	return c.closed
+}
+
+func (c *Client) Notify(e player.Event, args []interface{}) error {
+	_, err := c.conn.WriteLine(string(e))
+	if err != nil {
+		c.Close()
+		return err
 	}
-
-	c.conn.Close()
-}
-
-func (c *Client) Close() {
-	c.close <- struct{}{}
-	<-c.close
-}
-
-func (c *Client) SetOnClose(handler func(*Client, bool)) {
-	c.onClose = handler
-}
-
-func (c *Client) notify(msg *player.Notice) {
-	c.conn.WriteLine(string(msg.Event))
 
 	var lines []responseLine
 
-	switch msg.Event {
+	switch e {
 	case player.EventStatus:
-		lines = c.status(msg.Args[0].(*player.Status))
+		lines = c.status(args[0].(*player.Status))
 	// case player.PlaylistEvent:
 	// 	name := msg.Args[0].(string)
 	// 	tracks := msg.Args[1].([]*vfs.Track)
@@ -85,24 +82,39 @@ func (c *Client) notify(msg *player.Notice) {
 	}
 
 	for _, l := range lines {
-		c.conn.WriteLine(serialize.Map(l))
+		_, err := c.conn.WriteLine(serialize.Map(l))
+		if err != nil {
+			c.Close()
+			return err
+		}
+
 	}
-	c.conn.WriteLine("")
-	c.conn.Flush()
+	_, err = c.conn.WriteLine("")
+	if err != nil {
+		c.Close()
+		return err
+	}
+	err = c.conn.Flush()
+	if err != nil {
+		c.Close()
+		return err
+	}
+
+	return nil
 }
 
-func (c *Client) playlists(plists []*player.Playlist) {
-	for _, pl := range plists {
-		c.conn.WriteLine(serialize.Playlist(pl))
-	}
-}
+// func (c *Client) playlists(plists []*player.Playlist) {
+// 	for _, pl := range plists {
+// 		c.conn.WriteLine(serialize.Playlist(pl))
+// 	}
+// }
 
-func (c *Client) playlist(name string, tracks []*vfs.Track) {
-	c.conn.WriteLine(name)
-	for _, t := range tracks {
-		c.conn.WriteLine(serialize.Track(t))
-	}
-}
+// func (c *Client) playlist(name string, tracks []*vfs.Track) {
+// 	c.conn.WriteLine(name)
+// 	for _, t := range tracks {
+// 		c.conn.WriteLine(serialize.Track(t))
+// 	}
+// }
 
 func (c *Client) status(st *player.Status) []responseLine {
 	if st.State == player.StateStopped {

@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2019 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,35 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
+package csync
 
-import (
-	"net"
-
-	"github.com/vchimishuk/chub/cnet"
-	"github.com/vchimishuk/chub/player"
-)
-
-type Server struct {
-	srv *cnet.Server
+type Msg struct {
+	Data   interface{}
+	Result chan interface{}
 }
 
-func NewServer(p *player.Player) *Server {
-	srv := cnet.NewServer(func(conn net.Conn, s *cnet.Server) cnet.Client {
-		return NewClient(conn, s, p)
-	})
-
-	return &Server{srv: srv}
+type Notify struct {
+	ch chan *Msg
 }
 
-func (s *Server) Listen(addr string, port int) error {
-	return s.srv.Listen(addr, port)
+func NewNotify() *Notify {
+	return &Notify{make(chan *Msg)}
 }
 
-func (s *Server) Serve() {
-	s.srv.Serve()
+func (n *Notify) Wait() *Msg {
+	return <-n.WaitChan()
 }
 
-func (s *Server) Close() {
-	s.srv.Close()
+func (n *Notify) WaitChan() <-chan *Msg {
+	return n.ch
+}
+
+func (n *Notify) Send(msg interface{}) <-chan interface{} {
+	m := &Msg{Data: msg, Result: make(chan interface{})}
+	go func() {
+		n.ch <- m
+	}()
+
+	return m.Result
 }

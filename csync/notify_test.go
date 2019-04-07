@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2019 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,16 +15,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package player
+package csync
 
-type Event string
+import "testing"
 
-const (
-	EventStatus Event = "status"
-	EventVolume Event = "volume"
-)
+func TestSend(t *testing.T) {
+	n := NewNotify()
+	go func() {
+		m := <-n.WaitChan()
+		m.Result <- m.Data.(int) + 1
+	}()
 
-type Notice struct {
-	Event Event
-	Args  []interface{}
+	i := <-n.Send(5)
+	if i != 6 {
+		t.Fatalf("%d expected but %d got", 6, i)
+	}
 }

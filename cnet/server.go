@@ -25,19 +25,25 @@ import (
 )
 
 type Client interface {
-	Close()
+	Serve()
+	Close() error
+	IsClosed() bool
 }
+
+type ClientHandler func(conn net.Conn, srv *Server) Client
 
 type Server struct {
-	listener  *net.TCPListener
-	close     chan struct{}
-	clientsMu sync.Mutex // Guards following field.
-	clients   []Client
-	onClient  func(conn net.Conn) Client
+	listener *net.TCPListener
+	close    chan struct{}
+	clients  sync.Map
+	handler  ClientHandler
 }
 
-func NewServer() *Server {
-	return &Server{close: make(chan struct{})}
+func NewServer(h ClientHandler) *Server {
+	return &Server{
+		close:   make(chan struct{}),
+		handler: h,
+	}
 }
 
 func (s *Server) Listen(addr string, port int) error {
@@ -73,20 +79,24 @@ func (s *Server) Serve() {
 				}
 				time.Sleep(delay)
 			} else {
+				// TODO: Return error.
 				break
 			}
 		} else {
+			s.cleanUpClients()
 			delay = 0
-
-			if s.onClient != nil {
-				s.addClient(s.onClient(conn))
-			} else {
-				conn.Close()
-			}
+			c := s.handler(conn, s)
+			s.clients.Store(c, struct{}{})
+			go c.Serve()
 		}
 	}
 
-	s.closeClients()
+	s.clients.Range(func(k, v interface{}) bool {
+		k.(Client).Close()
+		s.clients.Delete(k)
+
+		return true
+	})
 	close(s.close)
 }
 
@@ -96,39 +106,26 @@ func (s *Server) Close() {
 	<-s.close
 }
 
-func (s *Server) SetOnClient(onClient func(conn net.Conn) Client) {
-	s.onClient = onClient
+func (s *Server) Clients() []Client {
+	cs := []Client{}
+	s.cleanUpClients()
+	s.clients.Range(func(k, v interface{}) bool {
+		cs = append(cs, k.(Client))
+		return true
+	})
+
+	return cs
 }
 
-func (s *Server) RemoveClient(c Client) {
-	s.removeClient(c)
-}
-
-func (s *Server) addClient(c Client) {
-	s.clientsMu.Lock()
-	s.clients = append(s.clients, c)
-	s.clientsMu.Unlock()
-}
-
-func (s *Server) removeClient(c Client) {
-	s.clientsMu.Lock()
-	for i, cc := range s.clients {
-		if cc == c {
-			s.clients = append(s.clients[:i],
-				s.clients[i+1:]...)
-			break
+func (s *Server) cleanUpClients() {
+	s.clients.Range(func(k, v interface{}) bool {
+		c := k.(Client)
+		if c.IsClosed() {
+			s.clients.Delete(k)
 		}
-	}
-	s.clientsMu.Unlock()
-}
 
-func (s *Server) closeClients() {
-	s.clientsMu.Lock()
-	for _, c := range s.clients {
-		c.Close()
-	}
-	s.clients = make([]Client, 0)
-	s.clientsMu.Unlock()
+		return true
+	})
 }
 
 func resolveAddr(addr string) (ip net.IP, err error) {

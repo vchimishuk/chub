@@ -26,68 +26,52 @@ import (
 )
 
 const (
-	vfsPlaylistName = "*vfs*"
+	vfsPlistName = "*vfs*"
 )
 
+type Event string
+
+const (
+	EventStatus Event = "status"
+	EventVolume Event = "volume"
+)
+
+type EventHandler func(e Event, args []interface{})
+
 type Player struct {
-	// Mutex guards plists, vfsPlist and curPlist fields.
-	// Any manipulation on that fields should be guarded with this mutex.
-	plistsMu      sync.RWMutex
-	plists        map[string]*Playlist
-	vfsPlist      *Playlist
-	curPlist      *Playlist
-	output        Output
-	pt            *playingThread
-	noticeChansMu sync.RWMutex
-	noticeChans   []chan *Notice
+	// Mutex guards plists and curPlist fields.
+	// Any manipulation on that fields must be guarded with this mutex.
+	plistsMu sync.RWMutex
+	plists   map[string]*Playlist
+	curPlist *Playlist
+	// Used output driver.
+	output Output
+	// Playing thread, which manages decode-output loop.
+	pt           *playingThread
+	eventHandler EventHandler
 }
 
 func New(fmts []format.Format, output Output) *Player {
-	pl := NewPlaylist(vfsPlaylistName)
 	p := &Player{
 		plists:   make(map[string]*Playlist),
-		vfsPlist: pl,
-		curPlist: pl,
+		curPlist: NewPlaylist(vfsPlistName),
 		output:   output,
 		pt:       newPlayingThread(fmts, output),
 	}
-
+	p.pt.SetStatusHandler(func(s *Status) {
+		p.notify(EventStatus, s)
+	})
 	p.pt.Start()
-	p.pt.SetPlaylist(pl)
+	p.pt.SetPlaylist(p.curPlist)
 
 	return p
 }
 
-func (p *Player) NoticeChan() <-chan *Notice {
-	p.noticeChansMu.Lock()
-	defer p.noticeChansMu.Unlock()
-	ch := make(chan *Notice)
-	p.noticeChans = append(p.noticeChans, ch)
-
-	return ch
-}
-
-func (p *Player) NoticeChanClose(ch <-chan *Notice) {
-	p.noticeChansMu.Lock()
-	defer p.noticeChansMu.Unlock()
-
-	for i, c := range p.noticeChans {
-		if c == ch {
-			p.noticeChans = append(p.noticeChans[:i],
-				p.noticeChans[i+1:]...)
-			close(c)
-			break
-		}
-	}
+func (p *Player) SetEventHandler(h EventHandler) {
+	p.eventHandler = h
 }
 
 func (p *Player) Close() {
-	p.noticeChansMu.Lock()
-	defer p.noticeChansMu.Unlock()
-	for _, ch := range p.noticeChans {
-		close(ch)
-	}
-
 	p.pt.Close()
 }
 
@@ -111,35 +95,32 @@ func (p *Player) Play(path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
 
-	p.vfsPlist = p.vfsPlist.Clear()
+	p.curPlist = NewPlaylist(vfsPlistName)
 	pos := 0
 	i := 0
 	for _, e := range entries {
 		if !e.IsDir() {
 			t := e.(*vfs.Track)
-			p.vfsPlist = p.vfsPlist.Append(t)
+			// TODO: Avoid coping plist all the time,
+			//       use bulk append instead.
+			p.curPlist = p.curPlist.Append(t)
 			if *path == *t.Path {
 				pos = i
 			}
 			i++
 		}
 	}
-	p.curPlist = p.vfsPlist
 	p.pt.Play(p.curPlist, pos)
-	p.notify(EventStatus, p.pt.Status())
 
 	return nil
 }
 
 func (p *Player) Stop() {
 	p.pt.Stop()
-	p.notify(EventStatus, p.pt.Status())
 }
 
 func (p *Player) Pause() {
 	p.pt.Pause()
-	st := p.pt.Status()
-	p.notify(EventStatus, st)
 }
 
 func (p *Player) Next() {
@@ -269,7 +250,7 @@ func (p *Player) Status() *Status {
 }
 
 func (p *Player) userPlist(name string) (*Playlist, error) {
-	if name == vfsPlaylistName {
+	if name == vfsPlistName {
 		return nil, errors.New("invalid playlist")
 	}
 
@@ -292,16 +273,9 @@ func (p *Player) replace(name string, pl *Playlist) {
 }
 
 func (p *Player) notify(e Event, args ...interface{}) {
-	go func() {
-		p.noticeChansMu.RLock()
-		defer p.noticeChansMu.RUnlock()
-
-		for _, ch := range p.noticeChans {
-			go func() {
-				ch <- &Notice{Event: e, Args: args}
-			}()
-		}
-	}()
+	if p.eventHandler != nil {
+		go p.eventHandler(e, args)
+	}
 }
 
 func listDirRec(path *vfs.Path) ([]*vfs.Track, error) {

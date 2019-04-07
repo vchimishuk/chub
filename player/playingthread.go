@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vchimishuk/chub/csync"
 	"github.com/vchimishuk/chub/format"
 )
 
@@ -56,18 +57,27 @@ const (
 type message struct {
 	cmd  command
 	args []interface{}
-	resp chan interface{}
 }
 
 type playingThread struct {
-	fmts         map[string]format.Format
-	output       Output
-	plist        *Playlist
-	pos          int
-	msgChan      chan *message
-	state        State
-	decoder      format.Decoder
-	bufAvailable chan struct{}
+	// Formats for every supported file extension.
+	fmts map[string]format.Format
+	// Active output.
+	output Output
+	// Active decoder.
+	decoder format.Decoder
+	// Active playlist.
+	plist *Playlist
+	// Current track number in the active playlist.
+	pos int
+	// Notify worker for client requests.
+	workerNotify *csync.Notify
+	// Current state.
+	state State
+	// Channel to notify worker that output is ready to consume
+	// new portion of decoded data.
+	bufAvail      chan struct{}
+	statusHandler func(*Status)
 }
 
 func newPlayingThread(fmts []format.Format, output Output) *playingThread {
@@ -82,54 +92,58 @@ func newPlayingThread(fmts []format.Format, output Output) *playingThread {
 		fmts:         fm,
 		output:       output,
 		pos:          -1,
-		msgChan:      make(chan *message),
-		bufAvailable: make(chan struct{}),
+		workerNotify: csync.NewNotify(),
+		bufAvail:     make(chan struct{}),
 		state:        StateStopped,
 	}
 }
 
+func (pt *playingThread) SetStatusHandler(h func(*Status)) {
+	pt.statusHandler = h
+}
+
 func (pt *playingThread) Start() {
-	go pt.loop()
+	go pt.worker()
 }
 
 func (pt *playingThread) Stop() {
-	pt.msgChan <- &message{cmd: cmdStop}
+	pt.workerNotify.Send(&message{cmd: cmdStop})
 }
 
 func (pt *playingThread) Close() {
-	pt.msgChan <- &message{cmd: cmdClose}
-	// Wait till loop() closes a channel before exit.
-	<-pt.msgChan
+	// Wait confirmation from worker to be sure
+	// its stop process is finished.
+	<-pt.workerNotify.Send(&message{cmd: cmdClose})
 }
 
 func (pt *playingThread) Play(plist *Playlist, pos int) {
-	pt.msgChan <- &message{cmd: cmdPlay, args: []interface{}{plist, pos}}
+	msg := &message{cmd: cmdPlay, args: []interface{}{plist, pos}}
+	pt.workerNotify.Send(msg)
 }
 
 func (pt *playingThread) Pause() {
-	pt.msgChan <- &message{cmd: cmdPause}
+	pt.workerNotify.Send(&message{cmd: cmdPause})
 }
 
 func (pt *playingThread) Next() {
-	pt.msgChan <- &message{cmd: cmdNext}
+	pt.workerNotify.Send(&message{cmd: cmdNext})
 }
 
 func (pt *playingThread) Prev() {
-	pt.msgChan <- &message{cmd: cmdPrev}
+	pt.workerNotify.Send(&message{cmd: cmdPrev})
 }
 
 func (pt *playingThread) SetPlaylist(plist *Playlist) {
-	pt.msgChan <- &message{cmd: cmdPlist, args: []interface{}{plist}}
+	msg := &message{cmd: cmdPlist, args: []interface{}{plist}}
+	pt.workerNotify.Send(msg)
 }
 
 func (pt *playingThread) Status() *Status {
-	m := &message{cmd: cmdStatus, resp: make(chan interface{})}
-	pt.msgChan <- m
-
-	return (<-m.resp).(*Status)
+	s := <-pt.workerNotify.Send(&message{cmd: cmdStatus})
+	return s.(*Status)
 }
 
-func (pt *playingThread) loop() {
+func (pt *playingThread) worker() {
 	// Limit max buffer size because output.Write takes too long on large
 	// buffer, which cause client commands processing lag.
 	const maxBufSize = 4096
@@ -141,7 +155,8 @@ func (pt *playingThread) loop() {
 		// Sleep select. Wait output to be ready to consume new portion
 		// of PCM data. Or handle some command if any arrives.
 		select {
-		case msg := <-pt.msgChan:
+		case m := <-pt.workerNotify.WaitChan():
+			msg := m.Data.(*message)
 			switch msg.cmd {
 			case cmdPlist:
 				pt.setPlaylist(msg.args[0].(*Playlist))
@@ -152,8 +167,9 @@ func (pt *playingThread) loop() {
 				pt.setPlaylist(msg.args[0].(*Playlist))
 				pt.play(msg.args[1].(int), false)
 			case cmdClose:
+				pt.stop()
 				quit = true
-				fallthrough
+				m.Result <- struct{}{}
 			case cmdStop:
 				pt.stop()
 			case cmdPause:
@@ -161,10 +177,12 @@ func (pt *playingThread) loop() {
 					pt.output.Pause()
 					pt.stopBufAvailableChecker()
 					pt.state = StatePaused
+					pt.emitStatus()
 				} else if pt.state == StatePaused {
 					pt.output.Pause()
 					pt.startBufAvailableChecker()
 					pt.state = StatePlaying
+					pt.emitStatus()
 				}
 			case cmdNext, cmdPrev:
 				var pos int
@@ -177,11 +195,11 @@ func (pt *playingThread) loop() {
 
 				pt.play(pos, false)
 			case cmdStatus:
-				msg.resp <- pt.status()
+				m.Result <- pt.status()
 			default:
 				panic("unsupported command")
 			}
-		case <-pt.bufAvailable:
+		case <-pt.bufAvail:
 			// Output buffer is available now for some new portion
 			// of decoded data. Just wake up and decode some.
 		}
@@ -226,8 +244,6 @@ func (pt *playingThread) loop() {
 			}
 		}
 	}
-
-	close(pt.msgChan)
 }
 
 func (pt *playingThread) play(pos int, smooth bool) {
@@ -304,6 +320,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	pt.pos = pos
 	pt.state = StatePlaying
 	pt.startBufAvailableChecker()
+	pt.emitStatus()
 }
 
 func (pt *playingThread) stop() {
@@ -316,6 +333,7 @@ func (pt *playingThread) stop() {
 		pt.plist = nil
 		pt.pos = -1
 		pt.state = StateStopped
+		pt.emitStatus()
 	}
 }
 
@@ -337,6 +355,12 @@ func (pt *playingThread) setPlaylist(plist *Playlist) {
 	pt.plist = plist
 }
 
+func (pt *playingThread) emitStatus() {
+	if pt.statusHandler != nil {
+		go pt.statusHandler(pt.status())
+	}
+}
+
 func (pt *playingThread) status() *Status {
 	s := &Status{}
 	s.State = pt.state
@@ -350,17 +374,17 @@ func (pt *playingThread) status() *Status {
 }
 
 func (pt *playingThread) startBufAvailableChecker() {
-	go bufAvailableChecker(pt, pt.output, pt.bufAvailable)
+	go bufAvailChecker(pt, pt.output, pt.bufAvail)
 }
 
 func (pt *playingThread) stopBufAvailableChecker() {
-	pt.bufAvailable <- struct{}{}
+	pt.bufAvail <- struct{}{}
 }
 
 // buffAvailableChecker monitors output buffer and signals via the given
 // channel when there is some free space available in the buffer, so player
 // can decode next piece of audio data and write it into the buffer.
-func bufAvailableChecker(pt *playingThread, output Output, ch chan struct{}) {
+func bufAvailChecker(pt *playingThread, output Output, ch chan struct{}) {
 	for {
 		ready, err := output.Wait(100)
 		if err != nil {

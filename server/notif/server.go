@@ -29,20 +29,13 @@ type Server struct {
 }
 
 func NewServer(p *player.Player) *Server {
-	srv := cnet.NewServer()
-	srv.SetOnClient(func(conn net.Conn) cnet.Client {
-		ch := p.NoticeChan()
-		c := newClient(conn, ch)
-		c.SetOnClose(func(cl *Client, kill bool) {
-			p.NoticeChanClose(ch)
-			srv.RemoveClient(cl)
-		})
-		go c.Serve()
-
-		return c
+	srv := cnet.NewServer(func(conn net.Conn, s *cnet.Server) cnet.Client {
+		return NewClient(conn)
 	})
+	s := &Server{srv}
+	p.SetEventHandler(s.onEvent)
 
-	return &Server{srv: srv}
+	return s
 }
 
 func (s *Server) Listen(addr string, port int) error {
@@ -55,4 +48,10 @@ func (s *Server) Serve() {
 
 func (s *Server) Close() {
 	s.srv.Close()
+}
+
+func (s *Server) onEvent(e player.Event, args []interface{}) {
+	for _, c := range s.srv.Clients() {
+		c.(*Client).Notify(e, args)
+	}
 }
