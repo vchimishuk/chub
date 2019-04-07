@@ -86,6 +86,7 @@ static int ffmpeg_decode(struct ffmpeg_file *file)
     }
     file->buf_len = nb;
     file->buf_offset = 0;
+    file->time = file->frame->pts;
 
     return nb;
 }
@@ -221,6 +222,7 @@ int ffmpeg_open_codec(struct ffmpeg_file *file)
     av_init_packet(file->pkt);
     av_packet_unref(file->pkt);
 
+    file->time = 0;
     file->frame = av_frame_alloc();
     if (!file->frame) {
         return -1;
@@ -291,14 +293,13 @@ int ffmpeg_seek(struct ffmpeg_file *file, int pos, int rel)
     }
 
     AVStream *s = file->format->streams[file->stream];
-    int ts;
+    int64_t pos_pts = pos / av_q2d(s->time_base);
+    int pts;
     if (rel) {
-        ts = file->time + pos;
+        pts = file->time + pos_pts;
     } else {
-        ts = pos;
+        pts = s->start_time + pos_pts;
     }
-
-    int64_t pts = s->start_time + (ts / av_q2d(s->time_base));
     int e = av_seek_frame(file->format, file->stream, pts,
             AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
     if (e < 0) {
@@ -306,7 +307,7 @@ int ffmpeg_seek(struct ffmpeg_file *file, int pos, int rel)
     }
 
     avcodec_flush_buffers(file->codec);
-    file->time = ts;
+    file->time = pts;
     file->buf_len = 0;
     file->buf_offset = 0;
     ffmpeg_reset_pkt(file);
@@ -317,7 +318,7 @@ int ffmpeg_seek(struct ffmpeg_file *file, int pos, int rel)
 int ffmpeg_time(struct ffmpeg_file *file)
 {
     AVStream *s = file->format->streams[file->stream];
-    int ts = file->frame->pts * av_q2d(s->time_base);
+    int ts = file->time * av_q2d(s->time_base);
 
     return ts;
 }
