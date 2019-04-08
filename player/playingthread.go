@@ -261,12 +261,10 @@ func (pt *playingThread) play(pos int, smooth bool) {
 
 	track := pt.plist.Get(pos)
 	sameFile := false
-	upcoming := false
 
 	if pt.state == StatePlaying {
 		cur := pt.plist.Get(pt.pos)
 		sameFile = cur.Path.File() == track.Path.File()
-		upcoming = cur.End == track.Start
 	}
 
 	// Do not reopen decoder if next track from the same physical file
@@ -291,10 +289,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		pt.decoder = d
 	}
 	if track.Part {
-		// Do not seek for just coming next tracks.
-		if !sameFile || !upcoming {
-			pt.decoder.Seek(track.Start, false)
-		}
+		pt.decoder.Seek(track.Start, false)
 	}
 
 	if !smooth && pt.output.IsOpen() {
