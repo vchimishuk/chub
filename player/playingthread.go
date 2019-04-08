@@ -367,7 +367,8 @@ func (pt *playingThread) status() *Status {
 	s.Plist = pt.plist
 	s.PlistPos = pt.pos
 	if s.State != StateStopped {
-		s.Pos = pt.decoder.Time()
+		t := pt.plist.Get(pt.pos)
+		s.Pos = pt.decoder.Time() - t.Start
 	}
 
 	return s
