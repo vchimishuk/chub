@@ -86,7 +86,9 @@ static int ffmpeg_decode(struct ffmpeg_file *file)
     }
     file->buf_len = nb;
     file->buf_offset = 0;
-    file->time = file->frame->pts;
+    if (file->frame->pts > 0) {
+        file->time = file->frame->pts;
+    }
 
     return nb;
 }
