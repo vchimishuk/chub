@@ -53,7 +53,7 @@ func (d *Decoder) Length() int {
 }
 
 func (d *Decoder) Read(buf []byte) (read int, err error) {
-	bp := (*_Ctype_char)(unsafe.Pointer(&buf[0]))
+	bp := (*C.char)(unsafe.Pointer(&buf[0]))
 	len := (C.size_t)(len(buf))
 
 	// TODO: Error handling.

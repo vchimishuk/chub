@@ -49,7 +49,7 @@ func (d *Decoder) Open(file string) error {
 // Read decodes and read next portion of data into buf.
 // Returns number of bytes written in buf or 0 if end of the stream was reached.
 func (d *Decoder) Read(buf []byte) (int, error) {
-	bp := (*_Ctype_char)(unsafe.Pointer(&buf[0]))
+	bp := (*C.char)(unsafe.Pointer(&buf[0]))
 	len := (C.int)(len(buf))
 
 	// TODO: Error handling.

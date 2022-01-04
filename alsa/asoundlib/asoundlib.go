@@ -133,7 +133,7 @@ func (handle *Handle) Open(device string, streamType StreamType, mode int) error
 
 	err := C.snd_pcm_open(&(handle.cHandle), cDevice,
 		C.snd_pcm_stream_t(streamType),
-		_Ctype_int(mode))
+		C.int(mode))
 
 	if err < 0 {
 		return fmt.Errorf("Cannot open audio device '%s'. %s",
@@ -167,13 +167,13 @@ func (handle *Handle) ApplyHwParams() error {
 		return fmt.Errorf("Cannot set sample format. %s",
 			strError(err))
 	}
-	var cSampleRate _Ctype_uint = _Ctype_uint(handle.SampleRate)
+	var cSampleRate C.uint = C.uint(handle.SampleRate)
 	err = C.snd_pcm_hw_params_set_rate_near(handle.cHandle, cHwParams, &cSampleRate, nil)
 	if err < 0 {
 		return fmt.Errorf("Cannot set sample rate. %s",
 			strError(err))
 	}
-	err = C.snd_pcm_hw_params_set_channels(handle.cHandle, cHwParams, _Ctype_uint(handle.Channels))
+	err = C.snd_pcm_hw_params_set_channels(handle.cHandle, cHwParams, C.uint(handle.Channels))
 	if err < 0 {
 		return fmt.Errorf("Cannot set number of channels. %s",
 			strError(err))
@@ -194,7 +194,7 @@ func (handle *Handle) ApplyHwParams() error {
 // delay time is runs out.
 // true ok value means that PCM stream is ready for I/O, false -- timeout occured.
 func (handle *Handle) Wait(maxDelay int) (ok bool, err error) {
-	res, err := C.snd_pcm_wait(handle.cHandle, _Ctype_int(maxDelay))
+	res, err := C.snd_pcm_wait(handle.cHandle, C.int(maxDelay))
 	if err != nil {
 		return false, fmt.Errorf("Pool failed. %s", err)
 	}
@@ -206,14 +206,14 @@ func (handle *Handle) Wait(maxDelay int) (ok bool, err error) {
 func (handle *Handle) AvailUpdate() (freeBytes int, err error) {
 	frames := C.snd_pcm_avail_update(handle.cHandle)
 	if frames == -C.EPIPE {
-		e := handle.tryRecover(_Ctype_int(frames))
+		e := handle.tryRecover(C.int(frames))
 		if e < 0 {
 			return 0, fmt.Errorf("avail updated: %s", strError(e))
 		}
 		frames = C.snd_pcm_avail_update(handle.cHandle)
 	}
 	if frames < 0 {
-		return 0, fmt.Errorf("Retriving free buffer size failed. %s", strError(_Ctype_int(frames)))
+		return 0, fmt.Errorf("Retriving free buffer size failed. %s", strError(C.int(frames)))
 	}
 
 	return int(frames) * handle.FrameSize(), nil
@@ -230,11 +230,11 @@ func (handle *Handle) Write(buf []byte) (wrote int, err error) {
 	w := C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
 	// Underrun? Retry.
 	if w == -C.EPIPE {
-		handle.tryRecover(_Ctype_int(w))
+		handle.tryRecover(C.int(w))
 		w = C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), C.snd_pcm_uframes_t(frames))
 	}
 	if w < 0 {
-		return 0, fmt.Errorf("Write failed. %s", strError(_Ctype_int(w)))
+		return 0, fmt.Errorf("Write failed. %s", strError(C.int(w)))
 	}
 
 	wrote = int(w)
@@ -298,7 +298,7 @@ func (handle *Handle) FrameSize() int {
 	return handle.SampleSize() * handle.Channels
 }
 
-func (h *Handle) tryRecover(err _Ctype_int) _Ctype_int {
+func (h *Handle) tryRecover(err C.int) C.int {
 	e := C.snd_pcm_recover(h.cHandle, err, 1)
 	if e < 0 {
 		return e
@@ -309,7 +309,7 @@ func (h *Handle) tryRecover(err _Ctype_int) _Ctype_int {
 }
 
 // strError retruns string description of ALSA error by its code.
-func strError(err _Ctype_int) string {
+func strError(err C.int) string {
 	cErrMsg := C.snd_strerror(err)
 
 	return C.GoString(cErrMsg)

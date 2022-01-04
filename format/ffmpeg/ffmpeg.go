@@ -83,7 +83,7 @@ func newDecoder(path string) (*decoder, error) {
 }
 
 func (d *decoder) Read(buf []byte) (read int, err error) {
-	p := (*_Ctype_char)(unsafe.Pointer(&buf[0]))
+	p := (*C.char)(unsafe.Pointer(&buf[0]))
 	len := (C.int)(len(buf))
 
 	n := int(C.ffmpeg_read(d.file, p, len))
@@ -98,7 +98,7 @@ func (d *decoder) Seek(pos int, rel bool) error {
 	if !rel && pos < 0 {
 		return errors.New("invalid seek position")
 	}
-	e := C.ffmpeg_seek(d.file, _Ctype_int(pos), _Ctype_int(btoi(rel)))
+	e := C.ffmpeg_seek(d.file, C.int(pos), C.int(btoi(rel)))
 	if e < 0 {
 		return errors.New("TODO:")
 	}
