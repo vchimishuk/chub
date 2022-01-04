@@ -38,10 +38,8 @@ type Metadata interface {
 type Decoder interface {
 	// Read decode piece of data and returns raw PCM audio data.
 	Read(buf []byte) (read int, err error)
-	// Seek sets new position in seconds to start decoding from. If rel
-	// parameter is set new position will be calculated as current plus
-	// pos, otherwise pos is an absolute seconds position.
-	Seek(pos int, rel bool) error
+	// Seek sets new position in seconds to start decoding from.
+	Seek(pos int) error
 	// Time returns current decoded position in seconds.
 	Time() int
 	// SampleRate returns sample rate of decoded stream.

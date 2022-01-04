@@ -219,7 +219,7 @@ func (c *Client) playlists() []string {
 	return lines
 }
 
-// TODO: Return slice of maps and let the caller to serialize it.
+// TODO: Return maps and let the caller to serialize it.
 func (c *Client) status() []string {
 	st := c.player.Status()
 

@@ -40,7 +40,7 @@ struct ffmpeg_file {
     int sample_rate;
     enum AVSampleFormat sample_fmt;
     /* Current decoding position in seconds. */
-    int time;
+    int64_t time;
     uint8_t **buf;
     int buf_nsamples;
     int buf_len;
@@ -56,7 +56,7 @@ void ffmpeg_close(struct ffmpeg_file *file);
 struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file);
 int ffmpeg_open_codec(struct ffmpeg_file *file);
 int ffmpeg_read(struct ffmpeg_file *file, char *buf, int len);
-int ffmpeg_seek(struct ffmpeg_file *file, int pos, int rel);
+int ffmpeg_seek(struct ffmpeg_file *file, int pos);
 void ffmpeg_metadata_free(struct ffmpeg_metadata *metadata);
 int ffmpeg_time(struct ffmpeg_file *file);
 int ffmpeg_channels(struct ffmpeg_file *file);

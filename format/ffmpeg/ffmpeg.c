@@ -282,26 +282,23 @@ int ffmpeg_read(struct ffmpeg_file *file, char *buf, int len)
             memcpy(buf + wrote, file->buf[0] + file->buf_offset, n);
             file->buf_offset += n;
             wrote += n;
+        } else {
+            break;
         }
     }
 
     return wrote;
 }
 
-int ffmpeg_seek(struct ffmpeg_file *file, int pos, int rel)
+int ffmpeg_seek(struct ffmpeg_file *file, int pos)
 {
-    if (!rel && pos < 0) {
+    if (pos < 0) {
         return -1;
     }
 
     AVStream *s = file->format->streams[file->stream];
-    int64_t pos_pts = pos / av_q2d(s->time_base);
-    int pts;
-    if (rel) {
-        pts = file->time + pos_pts;
-    } else {
-        pts = s->start_time + pos_pts;
-    }
+    int64_t delta_pts = av_rescale_q(pos, av_make_q(1, 1), s->time_base);
+    int64_t pts = s->start_time + delta_pts;
     int e = av_seek_frame(file->format, file->stream, pts,
             AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
     if (e < 0) {

@@ -94,11 +94,11 @@ func (d *decoder) Read(buf []byte) (read int, err error) {
 	return n, nil
 }
 
-func (d *decoder) Seek(pos int, rel bool) error {
-	if !rel && pos < 0 {
+func (d *decoder) Seek(pos int) error {
+	if pos < 0 {
 		return errors.New("invalid seek position")
 	}
-	e := C.ffmpeg_seek(d.file, C.int(pos), C.int(btoi(rel)))
+	e := C.ffmpeg_seek(d.file, C.int(pos))
 	if e < 0 {
 		return errors.New("TODO:")
 	}

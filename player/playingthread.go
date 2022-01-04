@@ -289,7 +289,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		pt.decoder = d
 	}
 	if track.Part {
-		pt.decoder.Seek(track.Start, false)
+		pt.decoder.Seek(track.Start)
 	}
 
 	if !smooth && pt.output.IsOpen() {
