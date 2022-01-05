@@ -110,6 +110,28 @@ func (s *scanner) NextInt() (int, error) {
 	return n, nil
 }
 
+func (s *scanner) NextBool() (bool, error) {
+	s.eatSpaces()
+
+	str := ""
+	for {
+		r, _, err := s.reader.ReadRune()
+		if err != nil {
+			break
+		}
+		str += string(r)
+	}
+
+	if str == "true" {
+		return true, nil
+	}
+	if str == "false" {
+		return false, nil
+	}
+
+	return false, errors.New("invalid boolean value")
+}
+
 func (s *scanner) eatSpaces() {
 	for {
 		r, _, err := s.reader.ReadRune()

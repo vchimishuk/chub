@@ -23,16 +23,10 @@ import (
 )
 
 const (
-	// TODO: Replace BACKWARD & FORWARD with SEEK command.
-
-	// Seek playing track position backward.
-	cmdBackward = "backward"
 	// Create new playlist.
 	cmdCreatePlaylist = "create-playlist"
 	// Delete existing playlist.
 	cmdDeletePlaylist = "delete-playlist"
-	// Seek playing track position forward.
-	cmdForward = "forward"
 	// Stop the server.
 	cmdKill = "kill"
 	// Show directory contents.
@@ -69,6 +63,8 @@ const (
 	cmdRepeat = "repeat"
 	// Returns player's current state (playback status, volume, etc.).
 	cmdStatus = "status"
+	// Seek current playing track time to specified time offset.
+	cmdSeek = "seek"
 	// Stop playing if active.
 	cmdStop = "stop"
 	// Change volume level.
@@ -94,15 +90,28 @@ func parseCommand(str string) (*command, error) {
 	}
 
 	switch name {
+	// One int argument command.
+	case cmdSeek:
+		t, e := s.NextInt()
+		r := false
+		if s.HasNext() {
+			r, e = s.NextBool()
+		} else {
+			if t < 0 {
+				e = errors.New("negative time")
+			}
+		}
+		args = []interface{}{t, r}
+		err = e
+	// One string argument command.
 	case cmdCreatePlaylist, cmdList, cmdPlay, cmdPlaylistClear:
 		fallthrough
 	case cmdPlaylistDelete, cmdPlaylistList:
-		// One string argument command.
 		path, e := s.NextString()
 		args = []interface{}{path}
 		err = e
+	// Two string arguments command.
 	case cmdPlaylistAppend, cmdPlaylistRename:
-		// Two string arguments command.
 		path := ""
 		name, e := s.NextString()
 		if e == nil {
@@ -110,8 +119,9 @@ func parseCommand(str string) (*command, error) {
 		}
 		args = []interface{}{name, path}
 		err = e
+	// Argumentless command.
 	case cmdKill, cmdNext, cmdPause, cmdPing, cmdPlaylists:
-		// Argumentless command.
+		fallthrough
 	case cmdPrev, cmdQuit, cmdStatus, cmdStop:
 		// Argumentless command.
 	default:

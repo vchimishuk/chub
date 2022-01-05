@@ -24,6 +24,7 @@ import (
 
 	"github.com/vchimishuk/chub/csync"
 	"github.com/vchimishuk/chub/format"
+	"github.com/vchimishuk/chub/math"
 )
 
 type State int
@@ -50,6 +51,7 @@ const (
 	cmdPlay
 	cmdPlist
 	cmdPrev
+	cmdSeek
 	cmdStatus
 	cmdStop
 )
@@ -104,6 +106,11 @@ func (pt *playingThread) SetStatusHandler(h func(*Status)) {
 
 func (pt *playingThread) Start() {
 	go pt.worker()
+}
+
+func (pt *playingThread) Seek(pos int, rel bool) {
+	pt.workerNotify.Send(&message{cmd: cmdSeek,
+		args: []interface{}{pos, rel}})
 }
 
 func (pt *playingThread) Stop() {
@@ -194,6 +201,8 @@ func (pt *playingThread) worker() {
 				}
 
 				pt.play(pos, false)
+			case cmdSeek:
+				pt.seek(msg.args[0].(int), msg.args[1].(bool))
 			case cmdStatus:
 				m.Result <- pt.status()
 			default:
@@ -256,6 +265,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		pos = 0
 	}
 	if pt.state == StatePlaying {
+		// TODO: Flush output buffer.
 		pt.stopBufAvailableChecker()
 	}
 
@@ -316,6 +326,22 @@ func (pt *playingThread) play(pos int, smooth bool) {
 	pt.state = StatePlaying
 	pt.startBufAvailableChecker()
 	pt.emitStatus()
+}
+
+func (pt *playingThread) seek(pos int, rel bool) {
+	if pt.state == StatePlaying {
+		tr := pt.plist.Get(pt.pos)
+		var t int
+		if rel {
+			t = math.Max(tr.Start, pt.decoder.Time()-tr.Start+pos)
+		} else {
+			t = math.Max(tr.Start, tr.Start+pos)
+		}
+
+		pt.decoder.Seek(t)
+		// TODO: Flush output buffer.
+		pt.emitStatus()
+	}
 }
 
 func (pt *playingThread) stop() {

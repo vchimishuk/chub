@@ -85,6 +85,28 @@ func TestInt(t *testing.T) {
 	}
 }
 
+func TestString(t *testing.T) {
+	s := newScanner("true false")
+
+	if !s.HasNext() {
+		t.Fatal()
+	}
+	b, err := s.NextBool()
+	if err != nil || b != true {
+		t.Fatal()
+	}
+	if !s.HasNext() {
+		t.Fatal()
+	}
+	b, err = s.NextString()
+	if err != nil || b != false {
+		t.Fatal()
+	}
+	if s.HasNext() {
+		t.Fatal()
+	}
+}
+
 func TestCommand(t *testing.T) {
 	s := newScanner(`PLAYLIST_APPEND "Test" "/home/viacheslav/documents/music"`)
 

@@ -102,6 +102,8 @@ func (c *Client) Serve() {
 				lines = c.playlists()
 			case cmdPrev:
 				c.player.Prev()
+			case cmdSeek:
+				c.player.Seek(cmd.args[0].(int), cmd.args[1].(bool))
 			case cmdStatus:
 				lines = c.status()
 			case cmdStop:

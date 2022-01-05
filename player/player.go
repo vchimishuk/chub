@@ -131,6 +131,10 @@ func (p *Player) Prev() {
 	p.pt.Prev()
 }
 
+func (p *Player) Seek(pos int, rel bool) {
+	p.pt.Seek(pos, rel)
+}
+
 func (p *Player) Append(name string, path *vfs.Path) error {
 	p.plistsMu.Lock()
 	defer p.plistsMu.Unlock()
