@@ -333,7 +333,7 @@ func (pt *playingThread) seek(pos int, rel bool) {
 		tr := pt.plist.Get(pt.pos)
 		var t int
 		if rel {
-			t = math.Max(tr.Start, pt.decoder.Time()-tr.Start+pos)
+			t = math.Max(tr.Start, pt.decoder.Time()+pos)
 		} else {
 			t = math.Max(tr.Start, tr.Start+pos)
 		}
