@@ -42,6 +42,8 @@ static void ffmpeg_reset_pkt(struct ffmpeg_file *file)
 static int ffmpeg_decode(struct ffmpeg_file *file)
 {
     if (file->pkt_decoded >= file->pkt->size) {
+        av_packet_unref(file->pkt);
+
         int e = av_read_frame(file->format, file->pkt);
         if (e < 0) {
             return e;
@@ -175,7 +177,7 @@ void ffmpeg_close(struct ffmpeg_file *file)
         swr_free(&file->swr);
     }
     if (file->pkt) {
-        av_free_packet(file->pkt);
+        av_packet_unref(file->pkt);
     }
     if (file->frame) {
         av_frame_free(&file->frame);
