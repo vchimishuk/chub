@@ -20,6 +20,8 @@
 
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
+#include <libavcodec/avcodec.h>
+
 
 struct ffmpeg_metadata {
     char *artist;
@@ -39,14 +41,19 @@ struct ffmpeg_file {
     int channels;
     int sample_rate;
     enum AVSampleFormat sample_fmt;
-    /* Current decoding position in seconds. */
+    // Current decoding time position.
     int64_t time;
+    // Buffer to store decoded data (samples) from decoded frame.
     uint8_t **buf;
+    // Number of samples buf can handle. Before if decoded frame
+    // has more samples we can store in buf buf will be reallocated
+    // to store desired number of samples.
     int buf_nsamples;
+    // buf total size in bytes.
     int buf_len;
+    // Position starting from which we have decoded data ready
+    // to be returned to the client on next ffmpeg_read() call.
     int buf_offset;
-    /* Number of bytes decoded from the current packet. */
-    int pkt_decoded;
 };
 
 void ffmpeg_init();

@@ -23,6 +23,7 @@
 #include <libswresample/swresample.h>
 #include "ffmpeg.h"
 
+
 static char *ffmpeg_last_err = NULL;
 
 static void *ffmpeg_alloc(size_t n)
@@ -33,39 +34,63 @@ static void *ffmpeg_alloc(size_t n)
     return p;
 }
 
-static void ffmpeg_reset_pkt(struct ffmpeg_file *file)
+// Send next packet for decoding.
+// Returns 0 if success or negative number in case of error.
+static int ffmpeg_send_packet(struct ffmpeg_file *file)
 {
-    av_packet_unref(file->pkt);
-    file->pkt_decoded = file->pkt->size;
+    for (;;) {
+        av_packet_unref(file->pkt);
+        int err = av_read_frame(file->format, file->pkt);
+        if (err < 0) {
+            // TODO: Error message.
+            return err;
+        }
+
+        if (file->pkt->stream_index != file->stream) {
+            continue;
+        }
+
+        err = avcodec_send_packet(file->codec, file->pkt);
+        // TODO: Error message.
+
+        return err;
+    }
 }
 
-static int ffmpeg_decode(struct ffmpeg_file *file)
+// Decode single frame and store decoded data in file->buf.
+static int ffmpeg_decode_frame(struct ffmpeg_file *file)
 {
-    if (file->pkt_decoded >= file->pkt->size) {
-        av_packet_unref(file->pkt);
-
-        int e = av_read_frame(file->format, file->pkt);
-        if (e < 0) {
-            return e;
-        }
-        file->pkt_decoded = 0;
-    }
-
-    int got_frame = 0;
-    int e = avcodec_decode_audio4(file->codec, file->frame, &got_frame,
-            file->pkt);
-    if (e < 0) {
-        return e;
-    }
-    if (!got_frame) {
-        return 0;
-    }
-    file->pkt_decoded += e;
-
     AVFrame *frame = file->frame;
-    int delay_nsamples = swr_get_delay(file->swr, file->codec->sample_rate);
+    AVCodecContext *codec = file->codec;
+
+    for (;;) {
+        av_frame_unref(file->frame);
+        int err = avcodec_receive_frame(codec, frame);
+        if (err == AVERROR(EAGAIN)) {
+            err = ffmpeg_send_packet(file);
+            if (err == AVERROR_EOF) {
+                return 0; // TODO: Return number of decoded.
+            }
+            if (err < 0) {
+                return err;
+            }
+            continue;
+        }
+        if (err == AVERROR_EOF) {
+            return 0; // TODO: Return number of decoded bytes.
+        }
+        if (err < 0) {
+            // TODO: Error string.
+            return err;
+        }
+
+        break;
+    }
+
+    int delay_nsamples = swr_get_delay(file->swr, codec->sample_rate);
     int dst_nsamples = av_rescale_rnd(delay_nsamples + frame->nb_samples,
-            file->sample_rate, file->codec->sample_rate, AV_ROUND_UP);
+        file->sample_rate, file->codec->sample_rate, AV_ROUND_UP);
+
     if (file->buf_nsamples < dst_nsamples) {
         if (file->buf) {
             av_freep(&file->buf[0]);
@@ -80,7 +105,7 @@ static int ffmpeg_decode(struct ffmpeg_file *file)
     }
 
     int ns = swr_convert(file->swr, file->buf, dst_nsamples,
-            (const uint8_t**) frame->data, frame->nb_samples);
+        (const uint8_t**) frame->data, frame->nb_samples);
     int nb = av_samples_get_buffer_size(NULL, file->channels,
             ns, file->sample_fmt, 1);
     if (nb < 0) {
@@ -104,9 +129,7 @@ char *ffmpeg_last_error()
 
 void ffmpeg_init()
 {
-    // TODO: Register only used audio formats.
     av_log_set_level(AV_LOG_ERROR);
-    av_register_all();
 }
 
 void ffmpeg_metadata_free(struct ffmpeg_metadata *md)
@@ -148,7 +171,7 @@ struct ffmpeg_file *ffmpeg_open(const char *filename)
 
     f->stream = -1;
     for (int i = 0; i < f->format->nb_streams; i++) {
-        if (f->format->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+        if (f->format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             f->stream = i;
             break;
         }
@@ -160,6 +183,8 @@ struct ffmpeg_file *ffmpeg_open(const char *filename)
         return NULL;
     }
 
+    // TODO: Chubs config should allow to config output format values,
+    //       which is passed to ALSA and here.
     f->channels = 2;
     f->sample_rate = 44100;
     f->sample_fmt = AV_SAMPLE_FMT_S16;
@@ -178,15 +203,19 @@ void ffmpeg_close(struct ffmpeg_file *file)
     }
     if (file->pkt) {
         av_packet_unref(file->pkt);
+        av_packet_free(&file->pkt);
     }
     if (file->frame) {
+        av_frame_unref(file->frame);
         av_frame_free(&file->frame);
     }
     if (file->codec) {
         avcodec_close(file->codec);
+        avcodec_free_context(&file->codec);
     }
     if (file->format) {
         avformat_close_input(&file->format);
+        avformat_free_context(file->format);
     }
 }
 
@@ -215,20 +244,31 @@ struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file)
 
 int ffmpeg_open_codec(struct ffmpeg_file *file)
 {
-    AVStream *s = file->format->streams[file->stream];
-    AVCodec *decoder = avcodec_find_decoder(s->codec->codec_id);
+    const AVStream *s = file->format->streams[file->stream];
+    const AVCodec *decoder = avcodec_find_decoder(s->codecpar->codec_id);
+    AVCodecContext *codec = avcodec_alloc_context3(decoder);
 
-    if (avcodec_open2(s->codec, decoder, NULL) < 0) {
+    int err = avcodec_parameters_to_context(codec,
+        file->format->streams[file->stream]->codecpar);
+    if (err < 0) {
+        // TODO: Set error message.
         return -1;
     }
-    file->codec = s->codec;
-    file->pkt = av_malloc(sizeof(AVPacket));
+
+    if (avcodec_open2(codec, decoder, NULL) < 0) {
+        // TODO: Set error message.
+        return -1;
+    }
+    file->codec = codec;
+
+    file->pkt = av_packet_alloc();
     av_init_packet(file->pkt);
     av_packet_unref(file->pkt);
 
-    file->time = 0;
+/*     file->time = 0; */
     file->frame = av_frame_alloc();
     if (!file->frame) {
+        // TODO: Set error message.
         return -1;
     }
 
@@ -260,32 +300,29 @@ int ffmpeg_open_codec(struct ffmpeg_file *file)
     return 0;
 }
 
+// Decode next len bytes. Returns number of bytes decoded, zero on
+// stream end and negative number in case of error.
 int ffmpeg_read(struct ffmpeg_file *file, char *buf, int len)
 {
     int wrote = 0;
+    int err;
 
-    while (len - wrote > 0) {
-        if (file->buf == NULL || file->buf_len - file->buf_offset == 0) {
-            for (int i = 0; ; i++) {
-                int n = ffmpeg_decode(file);
-                if (n < 0) {
-                    ffmpeg_reset_pkt(file);
-                    if (i >= 3) {
-                        return n;
-                    }
-                } else {
-                    break;
-                }
-            }
+    for (;;) {
+        int left = len - wrote;
+        int nready = MIN(left, file->buf_len - file->buf_offset);
+        if (nready) {
+            memcpy(buf + wrote, file->buf[0] + file->buf_offset, nready);
+            file->buf_offset += nready;
+            wrote += nready;
         }
 
-        if (file->buf_len - file->buf_offset > 0) {
-            int n = MIN(len - wrote, file->buf_len - file->buf_offset);
-            memcpy(buf + wrote, file->buf[0] + file->buf_offset, n);
-            file->buf_offset += n;
-            wrote += n;
-        } else {
+        if (wrote == len) {
             break;
+        }
+
+        int n = ffmpeg_decode_frame(file);
+        if (n <= 0) {
+            return n;
         }
     }
 
@@ -311,7 +348,6 @@ int ffmpeg_seek(struct ffmpeg_file *file, int pos)
     file->time = pts;
     file->buf_len = 0;
     file->buf_offset = 0;
-    ffmpeg_reset_pkt(file);
 
     return 0;
 }
