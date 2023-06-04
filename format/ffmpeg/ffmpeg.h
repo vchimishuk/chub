@@ -57,8 +57,10 @@ struct ffmpeg_file {
 };
 
 void ffmpeg_init();
-char *ffmpeg_last_error();
-struct ffmpeg_file *ffmpeg_open(const char *filename);
+char *ffmpeg_strerror(int err);
+struct ffmpeg_file *ffmpeg_alloc();
+void ffmpeg_free(struct ffmpeg_file *file);
+int ffmpeg_open(struct ffmpeg_file *file, const char *filename);
 void ffmpeg_close(struct ffmpeg_file *file);
 struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file);
 int ffmpeg_open_codec(struct ffmpeg_file *file);

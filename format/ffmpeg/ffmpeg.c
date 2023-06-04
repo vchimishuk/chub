@@ -24,9 +24,7 @@
 #include "ffmpeg.h"
 
 
-static char *ffmpeg_last_err = NULL;
-
-static void *ffmpeg_alloc(size_t n)
+static void *zmalloc(size_t n)
 {
     void *p = malloc(n);
     memset(p, 0, n);
@@ -120,11 +118,17 @@ static int ffmpeg_decode_frame(struct ffmpeg_file *file)
     return nb;
 }
 
-char *ffmpeg_last_error()
+// Return string representation of provided FFmpeg error code.
+// It is client's responsibility to free memory allocated by string.
+char *ffmpeg_strerror(int err)
 {
-    // TODO: Implement.
-    // TODO: Return (or try to get from ffmpeg) string representation of errors.
-    return ffmpeg_last_err;
+    char *buf = malloc(AV_ERROR_MAX_STRING_SIZE);
+    int e = av_strerror(err, buf, AV_ERROR_MAX_STRING_SIZE);
+    if (e < 0) {
+        strncpy(buf, "not ffmpeg error", AV_ERROR_MAX_STRING_SIZE);
+    }
+
+    return buf;
 }
 
 void ffmpeg_init()
@@ -149,49 +153,60 @@ void ffmpeg_metadata_free(struct ffmpeg_metadata *md)
     free(md);
 }
 
-struct ffmpeg_file *ffmpeg_open(const char *filename)
+// Allocate and initialize ffmpeg structure.
+// ffmpeg_free() must be called to free allocated memory.
+struct ffmpeg_file *ffmpeg_alloc()
 {
-    struct ffmpeg_file *f = ffmpeg_alloc(sizeof(struct ffmpeg_file));
+    return zmalloc(sizeof(struct ffmpeg_file));
+}
 
-    f->format = avformat_alloc_context();
-    int err = avformat_open_input(&f->format, filename, NULL, NULL);
+// Free structure allocated by ffmpeg_alloc().
+void ffmpeg_free(struct ffmpeg_file *file)
+{
+    free(file);
+}
+
+// Open audio file, associate it with ffmpeg structure and prepare
+// for reading its data.
+int ffmpeg_open(struct ffmpeg_file *file, const char *filename)
+{
+    file->format = avformat_alloc_context();
+    int err = avformat_open_input(&file->format, filename, NULL, NULL);
     if (err != 0) {
-        // TODO: Set last error string.
-        ffmpeg_close(f);
+        ffmpeg_close(file);
 
-        return NULL;
+        return err;
     }
-    err = avformat_find_stream_info(f->format, NULL);
+    err = avformat_find_stream_info(file->format, NULL);
     if (err < 0) {
-        // TODO: Set last error string.
-        ffmpeg_close(f);
+        ffmpeg_close(file);
 
-        return NULL;
+        return err;
     }
 
-    f->stream = -1;
-    for (int i = 0; i < f->format->nb_streams; i++) {
-        if (f->format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            f->stream = i;
+    file->stream = -1;
+    for (int i = 0; i < file->format->nb_streams; i++) {
+        if (file->format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            file->stream = i;
             break;
         }
     }
-    if (f->stream == -1) {
-        // TODO: Set last error string.
-        ffmpeg_close(f);
+    if (file->stream == -1) {
+        ffmpeg_close(file);
 
-        return NULL;
+        return AVERROR_STREAM_NOT_FOUND;
     }
 
     // TODO: Chubs config should allow to config output format values,
     //       which is passed to ALSA and here.
-    f->channels = 2;
-    f->sample_rate = 44100;
-    f->sample_fmt = AV_SAMPLE_FMT_S16;
+    file->channels = 2;
+    file->sample_rate = 44100;
+    file->sample_fmt = AV_SAMPLE_FMT_S16;
 
-    return f;
+    return 0;
 }
 
+// Close ffmpeg structure openned by ffmpeg_open().
 void ffmpeg_close(struct ffmpeg_file *file)
 {
     if (file->buf) {
@@ -222,7 +237,7 @@ void ffmpeg_close(struct ffmpeg_file *file)
 struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file)
 {
     AVStream *s = file->format->streams[file->stream];
-    struct ffmpeg_metadata *md = ffmpeg_alloc(sizeof(struct ffmpeg_metadata));
+    struct ffmpeg_metadata *md = zmalloc(sizeof(struct ffmpeg_metadata));
     md->duration = (int) (av_q2d(s->time_base) * s->duration);
 
     AVDictionary *m = file->format->metadata;

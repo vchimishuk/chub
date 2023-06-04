@@ -25,7 +25,6 @@ import "C"
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"unsafe"
 
@@ -68,15 +67,20 @@ func newDecoder(path string) (*decoder, error) {
 	p := C.CString(path)
 	defer C.free(unsafe.Pointer(p))
 
-	file := C.ffmpeg_open(p)
-	if file == nil {
-		// TODO: Handle error.
-		panic("TODO: ")
+	file := C.ffmpeg_alloc()
+	err := C.ffmpeg_open(file, p)
+	if err < 0 {
+		C.ffmpeg_free(file)
+
+		return nil, newError(int(err))
 	}
-	e := C.ffmpeg_open_codec(file)
-	if e != 0 {
+
+	err = C.ffmpeg_open_codec(file)
+	if err < 0 {
 		C.ffmpeg_close(file)
-		return nil, errors.New("TODO:")
+		C.ffmpeg_free(file)
+
+		return nil, newError(int(err))
 	}
 
 	return &decoder{file: file}, nil
@@ -88,7 +92,7 @@ func (d *decoder) Read(buf []byte) (read int, err error) {
 
 	n := int(C.ffmpeg_read(d.file, p, len))
 	if n < 0 {
-		return 0, fmt.Errorf("TODO: %d", n)
+		return 0, newError(int(n))
 	}
 
 	return n, nil
@@ -100,7 +104,7 @@ func (d *decoder) Seek(pos int) error {
 	}
 	e := C.ffmpeg_seek(d.file, C.int(pos))
 	if e < 0 {
-		return errors.New("TODO:")
+		return newError(int(err))
 	}
 
 	return nil
@@ -120,6 +124,7 @@ func (d *decoder) Channels() int {
 
 func (d *decoder) Close() {
 	C.ffmpeg_close(d.file)
+	C.ffmpeg_free(d.file)
 }
 
 type ffmpeg struct {
@@ -144,12 +149,15 @@ func (f ffmpeg) Metadata(path string) (format.Metadata, error) {
 	p := C.CString(path)
 	defer C.free(unsafe.Pointer(p))
 
-	file := C.ffmpeg_open(p)
-	if file == nil {
-		// TODO: Handle error.
-		panic("TODO: ")
+	file := C.ffmpeg_alloc()
+	defer C.ffmpeg_free(file)
+
+	err := C.ffmpeg_open(file, p)
+	if err < 0 {
+		return nil, newError(int(err))
 	}
 	defer C.ffmpeg_close(file)
+
 	md := C.ffmpeg_metadata(file)
 	defer C.ffmpeg_metadata_free(md)
 
@@ -175,4 +183,12 @@ func btoi(b bool) int {
 	} else {
 		return 0
 	}
+}
+
+func newError(err int) error {
+	s := C.ffmpeg_strerror(C.int(err))
+	g := C.GoString(s)
+	C.free(unsafe.Pointer(s))
+
+	return errors.New(g)
 }
