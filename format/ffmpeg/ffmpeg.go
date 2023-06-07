@@ -104,7 +104,7 @@ func (d *decoder) Seek(pos int) error {
 	}
 	e := C.ffmpeg_seek(d.file, C.int(pos))
 	if e < 0 {
-		return newError(int(err))
+		return newError(int(e))
 	}
 
 	return nil
