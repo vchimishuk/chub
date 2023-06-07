@@ -142,6 +142,7 @@ func (f ffmpeg) Extensions() []string {
 		"flac",
 		"mp3",
 		"ogg",
+		"wv",
 	}
 }
 
