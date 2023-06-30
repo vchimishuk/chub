@@ -106,7 +106,7 @@ func ParseCommand(str string) (*Command, error) {
 		args = []interface{}{b}
 		err = e
 	// One string argument command.
-	case CreatePlaylist, List, Play, PlaylistClear:
+	case CreatePlaylist, DeletePlaylist, List, Play, PlaylistClear:
 		fallthrough
 	case PlaylistDelete, PlaylistList:
 		p, e := s.NextString()

@@ -94,6 +94,8 @@ func (c *client) Serve() {
 				err = c.player.Clear(cmd.Args[0].(string))
 			case proto.CreatePlaylist:
 				err = c.player.Create(cmd.Args[0].(string))
+			case proto.DeletePlaylist:
+				err = c.player.Delete(cmd.Args[0].(string))
 			case proto.PlaylistDelete:
 				err = c.player.Delete(cmd.Args[0].(string))
 			case proto.PlaylistList:
