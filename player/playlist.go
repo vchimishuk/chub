@@ -17,7 +17,10 @@
 
 package player
 
-import "github.com/vchimishuk/chub/vfs"
+import (
+	"github.com/vchimishuk/chub/serialize"
+	"github.com/vchimishuk/chub/vfs"
+)
 
 type Playlist struct {
 	name     string
@@ -53,6 +56,10 @@ func (pl *Playlist) Get(i int) *vfs.Track {
 	return pl.tracks[i]
 }
 
+func (pl *Playlist) Tracks() []*vfs.Track {
+	return pl.tracks
+}
+
 func (pl *Playlist) Append(tracks ...*vfs.Track) *Playlist {
 	t := make([]*vfs.Track, len(pl.tracks)+len(tracks))
 	copy(t, pl.tracks)
@@ -64,4 +71,12 @@ func (pl *Playlist) Append(tracks ...*vfs.Track) *Playlist {
 	}
 
 	return &Playlist{name: pl.name, duration: d, tracks: t}
+}
+
+func (pl *Playlist) Serialize() string {
+	return serialize.Map(map[string]any{
+		"name":     pl.Name(),
+		"duration": pl.Duration(),
+		"length":   pl.Len(),
+	})
 }

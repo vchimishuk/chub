@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2023 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,47 +15,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
+package job
 
-import (
-	"fmt"
-	"net"
+import "testing"
 
-	"github.com/vchimishuk/chub/cnet"
-)
-
-type CmdConn struct {
-	*cnet.TextConn
-}
-
-func newCmdConn(conn net.Conn) *CmdConn {
-	return &CmdConn{TextConn: cnet.NewTextConn(conn)}
-}
-
-func (c *CmdConn) WriteOkResp(lines []string) error {
-	_, err := c.WriteLine("OK")
-
-	for _, line := range lines {
-		_, err := c.WriteLine(line)
-		if err != nil {
-			return err
-		}
-	}
-
+func TestShutdownImmediately(t *testing.T) {
+	j := Start(func(close <-chan any) error {
+		return nil
+	})
+	err := j.Shutdown()
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	_, err = c.WriteLine("")
-
-	return err
 }
 
-func (c *CmdConn) WriteErrorResp(e error) error {
-	_, err := c.WriteLine(fmt.Sprintf("ERR %s", e.Error()))
+func TestShutdownWait(t *testing.T) {
+	j := Start(func(close <-chan any) error {
+		<-close
+		return nil
+	})
+	err := j.Shutdown()
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	_, err = c.WriteLine("")
-
-	return err
 }

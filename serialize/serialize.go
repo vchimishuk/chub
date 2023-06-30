@@ -20,12 +20,23 @@ package serialize
 import (
 	"bytes"
 	"strconv"
-
-	"github.com/vchimishuk/chub/player"
-	"github.com/vchimishuk/chub/vfs"
 )
 
-func Map(m map[string]interface{}) string {
+type Serializable interface {
+	Serialize() string
+}
+
+type mapSerializable map[string]any
+
+func (m mapSerializable) Serialize() string {
+	return Map(m)
+}
+
+func Wrap(m map[string]any) Serializable {
+	return mapSerializable(m)
+}
+
+func Map(m map[string]any) string {
 	var b bytes.Buffer
 	var l int = len(m)
 	var i int = 1
@@ -52,63 +63,4 @@ func Map(m map[string]interface{}) string {
 	}
 
 	return b.String()
-}
-
-func Entry(entry interface{}) string {
-	return Map(entryToMap(entry))
-}
-
-func Dir(dir *vfs.Dir) string {
-	return Map(dirToMap(dir))
-}
-
-func Track(track *vfs.Track) string {
-	return Map(trackToMap(track))
-}
-
-func Playlist(plist *player.Playlist) string {
-	return Map(map[string]interface{}{
-		"name":     plist.Name(),
-		"duration": plist.Duration(),
-		"length":   plist.Len(),
-	})
-}
-
-func entryToMap(e interface{}) map[string]interface{} {
-	var m map[string]interface{}
-
-	switch e.(type) {
-	case *vfs.Dir:
-		m = dirToMap(e.(*vfs.Dir))
-		m["type"] = "dir"
-	case *vfs.Track:
-		m = trackToMap(e.(*vfs.Track))
-		m["type"] = "track"
-	default:
-		panic("unsupported type")
-	}
-
-	return m
-}
-
-func dirToMap(d *vfs.Dir) map[string]interface{} {
-	return map[string]interface{}{
-		"path": d.Path.Val(),
-		"name": d.Name,
-	}
-}
-
-func trackToMap(track *vfs.Track) map[string]interface{} {
-	m := map[string]interface{}{
-		"path":   track.Path.String(),
-		"length": track.Length,
-	}
-	if track.Tag != nil {
-		m["artist"] = track.Tag.Artist
-		m["album"] = track.Tag.Album
-		m["title"] = track.Tag.Title
-		m["number"] = track.Tag.Number
-	}
-
-	return m
 }

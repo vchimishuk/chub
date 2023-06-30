@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2023 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,35 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
+package job
 
-import (
-	"net"
-
-	"github.com/vchimishuk/chub/cnet"
-	"github.com/vchimishuk/chub/player"
-)
-
-type Server struct {
-	srv *cnet.Server
+type Job interface {
+	Shutdown() error
 }
 
-func NewServer(p *player.Player) *Server {
-	srv := cnet.NewServer(func(conn net.Conn, s *cnet.Server) cnet.Client {
-		return NewClient(conn, s, p)
-	})
+type Task func(close <-chan any) error
 
-	return &Server{srv: srv}
+type impl struct {
+	close  chan any
+	closed chan error
 }
 
-func (s *Server) Listen(addr string, port int) error {
-	return s.srv.Listen(addr, port)
+func Start(t Task) Job {
+	i := impl{
+		close:  make(chan any, 1),
+		closed: make(chan error, 1),
+	}
+
+	go func() {
+		i.closed <- t(i.close)
+	}()
+
+	return i
 }
 
-func (s *Server) Serve() {
-	s.srv.Serve()
-}
+func (i impl) Shutdown() error {
+	i.close <- struct{}{}
 
-func (s *Server) Close() {
-	s.srv.Close()
+	return <-i.closed
 }

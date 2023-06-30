@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016, 2023 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,125 +15,126 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package cmd
-
-import (
-	"errors"
-	"fmt"
-)
+package proto
 
 const (
 	// Create new playlist.
-	cmdCreatePlaylist = "create-playlist"
+	CreatePlaylist = "create-playlist"
 	// Delete existing playlist.
-	cmdDeletePlaylist = "delete-playlist"
+	DeletePlaylist = "delete-playlist"
+	// Enable or disable events notification for the current connection.
+	Events = "events"
 	// Stop the server.
-	cmdKill = "kill"
+	Kill = "kill"
 	// Show directory contents.
-	cmdList = "list"
+	List = "list"
 	// Play next track in the current playing playlist.
-	cmdNext = "next"
+	Next = "next"
 	// Toggle paused state.
-	cmdPause = "pause"
+	Pause = "pause"
 	// Do nothing, just returns "OK" response.
-	cmdPing = "ping"
+	Ping = "ping"
 	// Play a path (track or directory) from VFS.
-	cmdPlay = "play"
+	Play = "play"
 	// Add new track or folder to the end of the playlist.
-	cmdPlaylistAppend = "playlist-append"
+	PlaylistAppend = "playlist-append"
 	// Remove all items from playlist.
-	cmdPlaylistClear = "playlist-clear"
+	PlaylistClear = "playlist-clear"
 	// Delete items from playlist.
-	cmdPlaylistDelete = "playlist-delete"
+	PlaylistDelete = "playlist-delete"
 	// Show playlist tracks.
-	cmdPlaylistList = "playlist-list"
+	PlaylistList = "playlist-list"
 	// Start playing given playlist.
-	cmdPlaylistPlay = "playlist-play"
+	PlaylistPlay = "playlist-play"
 	// Move items inside playlist.
-	cmdPlaylistRemove = "playlist-move"
+	PlaylistRemove = "playlist-move"
 	// Rename playlist.
-	cmdPlaylistRename = "rename-playlist"
+	PlaylistRename = "rename-playlist"
 	// Show existing playlists list.
-	cmdPlaylists = "playlists"
+	Playlists = "playlists"
 	// Play previous track in the current playling playlist.
-	cmdPrev = "prev"
+	Prev = "prev"
 	// Disconnect from server.
-	cmdQuit = "quit"
+	Quit = "quit"
 	// Set/toggle repeat mode.
-	cmdRepeat = "repeat"
+	Repeat = "repeat"
 	// Returns player's current state (playback status, volume, etc.).
-	cmdStatus = "status"
+	Status = "status"
 	// Seek current playing track time to specified time offset.
-	cmdSeek = "seek"
+	Seek = "seek"
 	// Stop playing if active.
-	cmdStop = "stop"
+	Stop = "stop"
 	// Change volume level.
-	cmdVolumn = "volume"
+	Volumn = "volume"
 )
 
-type command struct {
-	name string
-	args []interface{}
+type Command struct {
+	Name string
+	Args []interface{}
 }
 
-func parseCommand(str string) (*command, error) {
+func ParseCommand(str string) (*Command, error) {
 	args := []interface{}{}
 	var err error
 	s := newScanner(str)
 
 	if !s.HasNext() {
-		return nil, errors.New("invalid command")
+		return nil, newError("invalid command")
 	}
 	name, err := s.NextString()
 	if err != nil {
-		return nil, errors.New("invalid command")
+		return nil, newError("invalid command")
 	}
 
 	switch name {
-	// One int argument command.
-	case cmdSeek:
+	// TODO: Do not need boolean parameter for Seek.
+	case Seek:
 		t, e := s.NextInt()
 		r := false
 		if s.HasNext() {
 			r, e = s.NextBool()
 		} else {
 			if t < 0 {
-				e = errors.New("negative time")
+				e = newError("negative time")
 			}
 		}
 		args = []interface{}{t, r}
 		err = e
+	// One bool argument command
+	case Events:
+		b, e := s.NextBool()
+		args = []interface{}{b}
+		err = e
 	// One string argument command.
-	case cmdCreatePlaylist, cmdList, cmdPlay, cmdPlaylistClear:
+	case CreatePlaylist, List, Play, PlaylistClear:
 		fallthrough
-	case cmdPlaylistDelete, cmdPlaylistList:
-		path, e := s.NextString()
-		args = []interface{}{path}
+	case PlaylistDelete, PlaylistList:
+		p, e := s.NextString()
+		args = []interface{}{p}
 		err = e
 	// Two string arguments command.
-	case cmdPlaylistAppend, cmdPlaylistRename:
-		path := ""
-		name, e := s.NextString()
+	case PlaylistAppend, PlaylistRename:
+		b := ""
+		a, e := s.NextString()
 		if e == nil {
-			path, e = s.NextString()
+			b, e = s.NextString()
 		}
-		args = []interface{}{name, path}
+		args = []interface{}{a, b}
 		err = e
 	// Argumentless command.
-	case cmdKill, cmdNext, cmdPause, cmdPing, cmdPlaylists:
+	case Kill, Next, Pause, Ping, Playlists:
 		fallthrough
-	case cmdPrev, cmdQuit, cmdStatus, cmdStop:
-		// Argumentless command.
+	case Prev, Quit, Status, Stop:
 	default:
-		return nil, errors.New("unsupported command")
+		return nil, newError("unsupported command")
 	}
 
 	if s.HasNext() {
-		err = errors.New("to many arguments")
+		err = newError("to many arguments")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("invalid command format")
+		return nil, newError("invalid command format")
 	}
 
-	return &command{name: name, args: args}, nil
+	return &Command{Name: name, Args: args}, nil
 }

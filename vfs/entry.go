@@ -17,7 +17,10 @@
 
 package vfs
 
+import "github.com/vchimishuk/chub/serialize"
+
 type Entry interface {
+	serialize.Serializable
 	IsDir() bool
 	Dir() *Dir
 	Track() *Track
@@ -42,6 +45,13 @@ func (d *Dir) Dir() *Dir {
 
 func (d *Dir) Track() *Track {
 	panic(nil)
+}
+
+func (d *Dir) Serialize() string {
+	return serialize.Map(map[string]interface{}{
+		"path": d.Path.Val(),
+		"name": d.Name,
+	})
 }
 
 // Track's tag data.
@@ -90,4 +100,19 @@ func (t *Track) Dir() *Dir {
 
 func (t *Track) Track() *Track {
 	return t
+}
+
+func (t *Track) Serialize() string {
+	m := map[string]interface{}{
+		"path":   t.Path.String(),
+		"length": t.Length,
+	}
+	if t.Tag != nil {
+		m["artist"] = t.Tag.Artist
+		m["album"] = t.Tag.Album
+		m["title"] = t.Tag.Title
+		m["number"] = t.Tag.Number
+	}
+
+	return serialize.Map(m)
 }

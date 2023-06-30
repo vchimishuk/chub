@@ -27,16 +27,9 @@ import (
 
 const (
 	vfsPlistName = "*vfs*"
+
+	eventsChSize = 16
 )
-
-type Event string
-
-const (
-	EventStatus Event = "status"
-	EventVolume Event = "volume"
-)
-
-type EventHandler func(e Event, args []interface{})
 
 type Player struct {
 	// Mutex guards plists and curPlist fields.
@@ -47,8 +40,9 @@ type Player struct {
 	// Used output driver.
 	output Output
 	// Playing thread, which manages decode-output loop.
-	pt           *playingThread
-	eventHandler EventHandler
+	pt *playingThread
+	// Channel to notify client that player state has been changed.
+	events chan Event
 }
 
 func New(fmts []format.Format, output Output) *Player {
@@ -57,18 +51,16 @@ func New(fmts []format.Format, output Output) *Player {
 		curPlist: NewPlaylist(vfsPlistName),
 		output:   output,
 		pt:       newPlayingThread(fmts, output),
+		events:   make(chan Event, eventsChSize),
 	}
-	p.pt.SetStatusHandler(func(s *Status) {
-		p.notify(EventStatus, s)
-	})
 	p.pt.Start()
 	p.pt.SetPlaylist(p.curPlist)
 
 	return p
 }
 
-func (p *Player) SetEventHandler(h EventHandler) {
-	p.eventHandler = h
+func (p *Player) Events() <-chan Event {
+	return p.events
 }
 
 func (p *Player) Close() {
@@ -155,7 +147,7 @@ func (p *Player) Append(name string, path *vfs.Path) error {
 	//       so client can update his playlist version
 	//       without requesting new version.
 	//       The same for other similar functions.
-	// go p.notify(PlaylistEvent, plist)
+	// p.notify(PlaylistEvent, plist)
 
 	return nil
 }
@@ -183,8 +175,7 @@ func (p *Player) Create(name string) error {
 	}
 
 	p.plists[name] = NewPlaylist(name)
-
-	// go p.notify(PlaylistsEvent, name)
+	p.notify(&PlistCreateEvent{name})
 
 	return nil
 }
@@ -204,7 +195,7 @@ func (p *Player) Delete(name string) error {
 		p.curPlist = nil
 	}
 
-	// TODO: go p.notify(PlaylistsEvent, p.Playlists())
+	p.notify(&PlistDeleteEvent{name})
 
 	return nil
 }
@@ -231,8 +222,7 @@ func (p *Player) Rename(from string, to string) error {
 	}
 
 	p.replace(from, pl.SetName(to))
-
-	// go p.notify(PlaylistsEvent, p.Playlists())
+	p.notify(&PlistRenameEvent{from, to})
 
 	return nil
 }
@@ -276,9 +266,9 @@ func (p *Player) replace(name string, pl *Playlist) {
 	}
 }
 
-func (p *Player) notify(e Event, args ...interface{}) {
-	if p.eventHandler != nil {
-		go p.eventHandler(e, args)
+func (p *Player) notify(e Event) {
+	if len(p.events) < eventsChSize {
+		p.events <- e
 	}
 }
 
