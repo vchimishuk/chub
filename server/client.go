@@ -57,6 +57,7 @@ func newClient(conn net.Conn, srv *Server, p *player.Player) *client {
 func (c *client) Serve() {
 	var err error
 	var cmd *proto.Command
+	var kill bool
 
 	for {
 		var recs []serialize.Serializable
@@ -74,8 +75,7 @@ func (c *client) Serve() {
 				c.events.Store(cmd.Args[0].(bool))
 			case proto.Kill:
 				err = errQuit
-				// TODO: I guess I can find a better way to to it.
-				go c.srv.Close()
+				kill = true
 			case proto.List:
 				recs, err = c.list(cmd.Args[0].(string))
 			case proto.Next:
@@ -122,14 +122,8 @@ func (c *client) Serve() {
 			}
 		}
 
-		if err == errQuit {
-			// Exit on user request.
-			c.writeMu.Unlock()
-			break
-		}
-
 		var ioErr error
-		if err != nil {
+		if err != nil && err != errQuit {
 			// Do not show FS-sensitive information to user.
 			if os.IsNotExist(err) || os.IsPermission(err) {
 				err = errors.New("no such file or directory")
@@ -143,6 +137,14 @@ func (c *client) Serve() {
 		if ioErr != nil {
 			// Exit on network error.
 			err = ioErr
+			break
+		}
+		if err == errQuit {
+			if kill {
+				// TODO: I guess I can find
+				//       a better way to to it.
+				go c.srv.Close()
+			}
 			break
 		}
 	}
