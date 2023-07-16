@@ -43,7 +43,7 @@ type PlistDeleteEvent struct {
 }
 
 func (e *PlistDeleteEvent) Name() string {
-	return "playlist-delete"
+	return "delete-playlist"
 }
 
 func (e *PlistDeleteEvent) Body() []serialize.Serializable {

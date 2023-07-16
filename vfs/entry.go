@@ -49,6 +49,7 @@ func (d *Dir) Track() *Track {
 
 func (d *Dir) Serialize() string {
 	return serialize.Map(map[string]interface{}{
+		"type": "dir",
 		"path": d.Path.Val(),
 		"name": d.Name,
 	})
@@ -104,6 +105,7 @@ func (t *Track) Track() *Track {
 
 func (t *Track) Serialize() string {
 	m := map[string]interface{}{
+		"type":   "track",
 		"path":   t.Path.String(),
 		"length": t.Length,
 	}
