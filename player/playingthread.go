@@ -29,10 +29,23 @@ import (
 
 type State int
 
+func (s State) String() string {
+	switch s {
+	case StatePaused:
+		return "paused"
+	case StatePlaying:
+		return "playing"
+	case StateStopped:
+		return "stopped"
+	default:
+		panic("unsupported state")
+	}
+}
+
 const (
-	StateStopped State = iota
+	StatePaused State = iota
 	StatePlaying
-	StatePaused
+	StateStopped
 )
 
 type Status struct {

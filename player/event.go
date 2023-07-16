@@ -17,11 +17,44 @@
 
 package player
 
-import "github.com/vchimishuk/chub/serialize"
+import (
+	"github.com/vchimishuk/chub/serialize"
+	"github.com/vchimishuk/chub/vfs"
+)
 
 type Event interface {
 	Name() string
-	Body() []serialize.Serializable
+	Serialize() []serialize.Serializable
+}
+
+type StatusEvent struct {
+	State    State
+	Plist    *Playlist
+	PlistPos int
+	Track    *vfs.Track
+	TrackPos int
+}
+
+func (e *StatusEvent) Name() string {
+	return "status"
+}
+
+func (e *StatusEvent) Serialize() []serialize.Serializable {
+	return []serialize.Serializable{serialize.Wrap(map[string]any{
+		"playlist-duration": e.Plist.Duration(),
+		"playlist-length":   e.Plist.Len(),
+		"playlist-name":     e.Plist.Name(),
+		"playlist-position": e.PlistPos,
+		"state":             e.State.String(),
+		"track-album":       e.Track.Tag.Album,
+		"track-artist":      e.Track.Tag.Artist,
+		"track-length":      e.Track.Length,
+		"track-number":      e.Track.Tag.Number,
+		"track-path":        e.Track.Path.String(),
+		"track-position":    e.TrackPos,
+		"track-title":       e.Track.Tag.Title,
+	})}
+
 }
 
 type PlistCreateEvent struct {
@@ -32,7 +65,7 @@ func (e *PlistCreateEvent) Name() string {
 	return "create-playlist"
 }
 
-func (e *PlistCreateEvent) Body() []serialize.Serializable {
+func (e *PlistCreateEvent) Serialize() []serialize.Serializable {
 	return []serialize.Serializable{serialize.Wrap(map[string]any{
 		"name": e.Plist,
 	})}
@@ -46,7 +79,7 @@ func (e *PlistDeleteEvent) Name() string {
 	return "delete-playlist"
 }
 
-func (e *PlistDeleteEvent) Body() []serialize.Serializable {
+func (e *PlistDeleteEvent) Serialize() []serialize.Serializable {
 	return []serialize.Serializable{serialize.Wrap(map[string]any{
 		"name": e.Plist,
 	})}
@@ -61,7 +94,7 @@ func (e *PlistRenameEvent) Name() string {
 	return "playlist-rename"
 }
 
-func (e *PlistRenameEvent) Body() []serialize.Serializable {
+func (e *PlistRenameEvent) Serialize() []serialize.Serializable {
 	return []serialize.Serializable{serialize.Wrap(map[string]any{
 		"from": e.From,
 		"to":   e.To,

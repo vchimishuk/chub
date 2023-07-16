@@ -174,7 +174,7 @@ func (c *client) Notify(e player.Event) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 
-	return c.proto.WriteEvent(e.Name(), e.Body())
+	return c.proto.WriteEvent(e.Name(), e.Serialize())
 }
 
 func (c *client) play(path string) error {
@@ -218,7 +218,6 @@ func (c *client) playlist(name string) ([]serialize.Serializable, error) {
 }
 
 func (c *client) playlists() []serialize.Serializable {
-
 	return serializableSlice(c.player.Playlists())
 }
 

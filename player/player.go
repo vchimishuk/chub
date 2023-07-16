@@ -55,6 +55,15 @@ func New(fmts []format.Format, output Output) *Player {
 	}
 	p.pt.Start()
 	p.pt.SetPlaylist(p.curPlist)
+	p.pt.SetStatusHandler(func(s *Status) {
+		p.notify(&StatusEvent{
+			State:    s.State,
+			Plist:    s.Plist,
+			PlistPos: s.PlistPos,
+			Track:    s.Plist.Get(s.PlistPos),
+			TrackPos: s.Pos,
+		})
+	})
 
 	return p
 }

@@ -19,6 +19,7 @@ package serialize
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 )
 
@@ -53,7 +54,7 @@ func Map(m map[string]any) string {
 		case bool:
 			b.WriteString(strconv.FormatBool(v.(bool)))
 		default:
-			panic("Unsupported type")
+			panic(fmt.Sprintf("unsupported type: %T", v))
 		}
 
 		if i < l {
