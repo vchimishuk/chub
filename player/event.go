@@ -40,21 +40,26 @@ func (e *StatusEvent) Name() string {
 }
 
 func (e *StatusEvent) Serialize() []serialize.Serializable {
-	return []serialize.Serializable{serialize.Wrap(map[string]any{
-		"playlist-duration": e.Plist.Duration(),
-		"playlist-length":   e.Plist.Len(),
-		"playlist-name":     e.Plist.Name(),
-		"playlist-position": e.PlistPos,
-		"state":             e.State.String(),
-		"track-album":       e.Track.Tag.Album,
-		"track-artist":      e.Track.Tag.Artist,
-		"track-length":      e.Track.Length,
-		"track-number":      e.Track.Tag.Number,
-		"track-path":        e.Track.Path.String(),
-		"track-position":    e.TrackPos,
-		"track-title":       e.Track.Tag.Title,
-	})}
-
+	if e.State == StateStopped {
+		return []serialize.Serializable{serialize.Wrap(map[string]any{
+			"state": e.State.String(),
+		})}
+	} else {
+		return []serialize.Serializable{serialize.Wrap(map[string]any{
+			"playlist-duration": e.Plist.Duration(),
+			"playlist-length":   e.Plist.Len(),
+			"playlist-name":     e.Plist.Name(),
+			"playlist-position": e.PlistPos,
+			"state":             e.State.String(),
+			"track-album":       e.Track.Tag.Album,
+			"track-artist":      e.Track.Tag.Artist,
+			"track-length":      e.Track.Length,
+			"track-number":      e.Track.Tag.Number,
+			"track-path":        e.Track.Path.String(),
+			"track-position":    e.TrackPos,
+			"track-title":       e.Track.Tag.Title,
+		})}
+	}
 }
 
 type PlistCreateEvent struct {
