@@ -402,7 +402,19 @@ func (pt *playingThread) status() *Status {
 	s.PlistPos = pt.pos
 	if s.State != StateStopped {
 		t := pt.plist.Get(pt.pos)
+		// TODO: Sometimes, just after switching to the next track,
+		//       decoder time is one second behind actual track start
+		//       got from CUE.
+		//       Reproduce:
+		//       * Play track from /Praying Mantis/1991 - Predator In Disguise
+		//       * Wait for track ends and next one is started.
+		//
+		//       -1 = 1725 - 1726
 		s.Pos = pt.decoder.Time() - t.Start
+		// TODO: Next if statement is a temporary solution.
+		if s.Pos < 0 {
+			s.Pos = 0
+		}
 	}
 
 	return s
