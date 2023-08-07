@@ -26,6 +26,7 @@
 struct ffmpeg_metadata {
     char *artist;
     char *album;
+    int year;
     char *title;
     char *number;
     int duration;

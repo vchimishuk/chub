@@ -255,6 +255,7 @@ func (c *client) status() []serialize.Serializable {
 				"track-album":       track.Tag.Album,
 				"track-title":       track.Tag.Title,
 				"track-number":      track.Tag.Number,
+				"track-year":        track.Tag.Year,
 				"track-length":      track.Length,
 			}),
 		}

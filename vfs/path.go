@@ -394,6 +394,7 @@ func newTrack(p *Path) (*Track, error) {
 			Tag: &Tag{
 				Artist: md.Artist(),
 				Album:  md.Album(),
+				Year:   md.Year(),
 				Title:  md.Title(),
 				Number: md.Number(),
 			},
@@ -510,6 +511,7 @@ func cueSheetForFile(p *Path) (*cue.Sheet, error) {
 func newTag(sheet *cue.Sheet, track *cue.Track) *Tag {
 	tag := &Tag{
 		Album:  sheet.Title,
+		Year:   findYear(sheet.Comments),
 		Title:  track.Title,
 		Number: track.Number,
 	}
@@ -521,4 +523,24 @@ func newTag(sheet *cue.Sheet, track *cue.Track) *Tag {
 	}
 
 	return tag
+}
+
+func findYear(comments []string) int {
+	i, err := strconv.Atoi(findComment(comments, "DATE"))
+	if err != nil {
+		return 0
+	}
+
+	return i
+}
+
+func findComment(comments []string, name string) string {
+	for _, c := range comments {
+		pts := strings.SplitN(c, " ", 2)
+		if len(pts) == 2 && pts[0] == name {
+			return pts[1]
+		}
+	}
+
+	return ""
 }

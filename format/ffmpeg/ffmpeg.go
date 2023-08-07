@@ -34,6 +34,7 @@ import (
 type metadata struct {
 	artist string
 	album  string
+	year   int
 	title  string
 	number int
 	length int
@@ -45,6 +46,10 @@ func (m *metadata) Artist() string {
 
 func (m *metadata) Album() string {
 	return m.album
+}
+
+func (m *metadata) Year() int {
+	return m.year
 }
 
 func (m *metadata) Title() string {
@@ -167,6 +172,7 @@ func (f ffmpeg) Metadata(path string) (format.Metadata, error) {
 		artist: C.GoString(md.artist),
 		album:  C.GoString(md.album),
 		title:  C.GoString(md.title),
+		year:   int(md.year),
 		number: n,
 		length: int(md.duration),
 	}

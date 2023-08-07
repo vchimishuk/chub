@@ -58,6 +58,7 @@ func (e *StatusEvent) Serialize() []serialize.Serializable {
 			"track-path":        e.Track.Path.String(),
 			"track-position":    e.TrackPos,
 			"track-title":       e.Track.Tag.Title,
+			"track-year":        e.Track.Tag.Year,
 		})}
 	}
 }

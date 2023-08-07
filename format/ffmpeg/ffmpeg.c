@@ -247,6 +247,8 @@ struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file)
             md->artist = strdup(tag->value);
         } else if (strcmp(tag->key, "album") == 0) {
             md->album = strdup(tag->value);
+        } else if (strcmp(tag->key, "date") == 0) {
+            md->year = atoi(tag->value);
         } else if (strcmp(tag->key, "title") == 0) {
             md->title = strdup(tag->value);
         } else if (strcmp(tag->key, "track") == 0) {

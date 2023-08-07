@@ -1,8 +1,8 @@
 NAME
-    Chub is MPD-like player daemon.
+    Chub is a MPD-like audio player.
 
 AUTHORS
-    Viacheslav Chimishuk <voice@root.ua>
+    Viacheslav Chimishuk <vchimishuk@yandex.ru>
 
 COPYING
     This programm is released under the GNU General Public License version 3 or later, which is

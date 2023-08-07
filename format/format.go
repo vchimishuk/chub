@@ -29,6 +29,7 @@ var ErrNotSupported = errors.New("not supported audio format")
 type Metadata interface {
 	Artist() string
 	Album() string
+	Year() int
 	Title() string
 	Number() int
 	Length() int

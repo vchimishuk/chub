@@ -61,6 +61,8 @@ type Tag struct {
 	Artist string
 	// Album name.
 	Album string
+	// Album release year.
+	Year int
 	// Track's title.
 	Title string
 	// Track number.
@@ -77,6 +79,7 @@ type Track struct {
 	// Track media information.
 	Tag *Tag
 	// Track length in seconds.
+	// TODO: Rename to Duration to be consistent with Playlist.
 	Length int
 	// If Part is true it means this track represents piece of the
 	// actual file, not the whole file. E. g. we have album FLAC file
@@ -114,6 +117,7 @@ func (t *Track) Serialize() string {
 		m["album"] = t.Tag.Album
 		m["title"] = t.Tag.Title
 		m["number"] = t.Tag.Number
+		m["year"] = t.Tag.Year
 	}
 
 	return serialize.Map(m)
