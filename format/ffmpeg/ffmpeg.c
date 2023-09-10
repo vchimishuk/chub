@@ -243,15 +243,15 @@ struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file)
     AVDictionary *m = file->format->metadata;
     AVDictionaryEntry *tag = NULL;
     while ((tag = av_dict_get(m, "", tag, AV_DICT_IGNORE_SUFFIX))) {
-        if (strcmp(tag->key, "artist") == 0) {
+        if (strcasecmp(tag->key, "artist") == 0) {
             md->artist = strdup(tag->value);
-        } else if (strcmp(tag->key, "album") == 0) {
+        } else if (strcasecmp(tag->key, "album") == 0) {
             md->album = strdup(tag->value);
-        } else if (strcmp(tag->key, "date") == 0) {
+        } else if (strcasecmp(tag->key, "date") == 0) {
             md->year = atoi(tag->value);
-        } else if (strcmp(tag->key, "title") == 0) {
+        } else if (strcasecmp(tag->key, "title") == 0) {
             md->title = strdup(tag->value);
-        } else if (strcmp(tag->key, "track") == 0) {
+        } else if (strcasecmp(tag->key, "track") == 0) {
             md->number = strdup(tag->value);
         }
     }
