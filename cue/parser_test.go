@@ -39,12 +39,15 @@ func TestParseCommand(t *testing.T) {
 		{"COMMAND \t PARAM1   PARAM2\tPARAM3",
 			expected{"COMMAND",
 				[]string{"PARAM1", "PARAM2", "PARAM3"}}},
-		{"COMMAND 'PARAM1' \"PARAM2\" 'PAR\"AM3' 'P AR  AM 4'",
+		{"COMMAND \"PARAM1\" \"PARAM2\" \"PAR\\\"AM3\" \"P AR  AM 4\"",
 			expected{"COMMAND",
 				[]string{"PARAM1", "PARAM2", "PAR\"AM3", "P AR  AM 4"}}},
-		{"COMMAND 'P A R A M 1' \"PA RA M2\" PA\\\"RAM\\'3",
+		{"COMMAND \"P A R A M 1\" \"PA RA M2\" PA\\\"RAM\\'3",
 			expected{"COMMAND",
 				[]string{"P A R A M 1", "PA RA M2", "PA\"RAM'3"}}},
+		{"COMMAND P\"ARA\"M1 PAR'AM2",
+			expected{"COMMAND",
+				[]string{"P\"ARA\"M1", "PAR'AM2"}}},
 	}
 
 	for _, tt := range tests {
@@ -85,7 +88,7 @@ func TestParseTime(t *testing.T) {
 	for input, expected := range tests {
 		min, sec, frames, err := parseTime(input)
 		if err != nil {
-			t.Fatalf("Time parsing failed. Input string: '%s'. %", input, err)
+			t.Fatalf("Time parsing failed. Input string: '%s'. %s", input, err)
 		}
 
 		if min != expected.min {

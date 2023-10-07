@@ -52,14 +52,15 @@ func parseCommand(line string) (cmd string, params []string, err error) {
 	for i = 0; i < l; i++ {
 		c := line[i]
 
-		if quotedChar == 0 { // We are not in quote mode now, so we can enter into.
-			if isQuoteChar(c) {
-				// Quote can be started only at the beginnig of the parameter,
-				// but not in the middle.
-				if param.Len() != 0 {
-					err = errors.New("Unexpected quortation character.")
-					return
-				}
+		// We are not in quote mode now, so we can enter into.
+		if quotedChar == 0 {
+			// Quote can be started only at the beginnig of the parameter,
+			// but not in the middle.
+			if isQuoteChar(c) && param.Len() == 0 {
+				// if param.Len() != 0 {
+				// 	err = errors.New("Unexpected quotation character.")
+				// 	return
+				// }
 				quotedChar = c
 			} else if unicode.IsSpace(rune(c)) {
 				// In not quote mode space starts new parameter.
@@ -136,7 +137,7 @@ func parseEscapeSequence(seq string) (char byte, err error) {
 // isQuoteChar returns true if given char is string quoted char:
 // " or '.
 func isQuoteChar(char byte) bool {
-	return char == '\'' || char == '"'
+	return char == '"'
 }
 
 // parserTime parses time string and returns separate values.
