@@ -19,6 +19,8 @@ package player
 
 // Output interface represents audio autput driver (ALSA, OSS, ...).
 type Output interface {
+	// Output driver name. E.g. ALSA.
+	Name() string
 	// Open opens output audio device.
 	Open() error
 	// IsOpen returns true if output is in open state.

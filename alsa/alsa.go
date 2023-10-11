@@ -34,6 +34,10 @@ func New() *Alsa {
 	return &Alsa{}
 }
 
+func (a *Alsa) Name() string {
+	return "ALSA"
+}
+
 func (a *Alsa) Open() error {
 	a.handle = asoundlib.New()
 	err := a.handle.Open("default", asoundlib.StreamTypePlayback, asoundlib.ModeBlock)

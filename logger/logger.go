@@ -37,7 +37,7 @@ const (
 )
 
 // Default logging flags combination to use.
-const defaultFlags = log.Ltime | log.Lmicroseconds | log.Lshortfile
+const defaultFlags = log.Ltime | log.Lmicroseconds
 
 // String representations on of log levels.
 var levelNames = map[int]string{
@@ -67,8 +67,7 @@ func newLogger(level int) *logger {
 
 // output prints a message using standard logger from log package.
 func (l *logger) output(level int, format string, args ...interface{}) {
-	line := fmt.Sprintf("[%s] %s", levelNames[level], fmt.Sprintf(format, args...))
-	l.stdLogger.Output(4, line)
+	l.stdLogger.Output(3, fmt.Sprintf(format, args...))
 }
 
 // Level returns current log level used by the standard logger.

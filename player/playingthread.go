@@ -18,12 +18,14 @@
 package player
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/vchimishuk/chub/csync"
 	"github.com/vchimishuk/chub/format"
+	"github.com/vchimishuk/chub/logger"
 	"github.com/vchimishuk/chub/math"
 )
 
@@ -257,10 +259,11 @@ func (pt *playingThread) worker() {
 						pt.stop()
 					}
 				} else {
-					err := writeAll(pt.output, buf[:read])
+					err := pt.outputWrite(buf[:read])
 					if err != nil {
-						// TODO: Error handling.
-						panic(err)
+						logger.Error("%s write failed: %w",
+							pt.output.Name(), err)
+						pt.stop()
 					}
 				}
 			}
@@ -326,14 +329,7 @@ func (pt *playingThread) play(pos int, smooth bool) {
 		}
 	}
 
-	osr := pt.output.SampleRate()
-	och := pt.output.Channels()
-	dsr := pt.decoder.SampleRate()
-	dch := pt.decoder.Channels()
-	if osr != dsr || och != dch {
-		pt.output.SetSampleRate(dsr)
-		pt.output.SetChannels(dch)
-	}
+	configureOutput(pt.output, pt.decoder)
 
 	pt.pos = pos
 	pt.state = StatePlaying
@@ -426,6 +422,33 @@ func (pt *playingThread) startBufAvailableChecker() {
 
 func (pt *playingThread) stopBufAvailableChecker() {
 	pt.bufAvail <- struct{}{}
+}
+
+func (pt *playingThread) outputWrite(buf []byte) error {
+	err := writeAll(pt.output, buf)
+	if err == nil {
+		return nil
+	}
+
+	logger.Error("%s write failed: %s", pt.output.Name(), err)
+
+	// Try to reopen output. Sometimes output write erorrs can be
+	// recovered. For instance write fails after hibernation.
+	pt.output.Close()
+	err = pt.output.Open()
+	if err == nil {
+		configureOutput(pt.output, pt.decoder)
+		return nil
+	}
+
+	return fmt.Errorf("failed to open %s: %w", pt.output.Name(), err)
+}
+
+func configureOutput(o Output, d format.Decoder) {
+	if o.SampleRate() != d.SampleRate() || o.Channels() != d.Channels() {
+		o.SetSampleRate(d.SampleRate())
+		o.SetChannels(d.Channels())
+	}
 }
 
 // buffAvailableChecker monitors output buffer and signals via the given
