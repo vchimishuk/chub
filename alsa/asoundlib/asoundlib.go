@@ -18,7 +18,7 @@
 // asoundlib package is the simple wrapper for C alsa binding library.
 package asoundlib
 
-// #cgo LDFLAGS: -lasound
+// #cgo pkg-config: alsa
 // #include <alsa/asoundlib.h>
 import "C"
 

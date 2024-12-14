@@ -19,7 +19,7 @@
 package ffmpeg
 
 // #cgo CFLAGS: -Wno-deprecated-declarations
-// #cgo LDFLAGS: -lavcodec -lavformat -lavutil -lswresample
+// #cgo pkg-config: libavcodec libavformat libavutil libswresample
 // #include "ffmpeg.h"
 import "C"
 
