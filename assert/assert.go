@@ -1,4 +1,4 @@
-// Copyright 2023 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,49 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-package job
+package assert
 
-type Job interface {
-	Close()
-	Wait() error
-	WaitChan() <-chan error
-	Shutdown() error
-}
-
-type Task func(close <-chan any) error
-
-type impl struct {
-	close  chan any
-	closed chan error
-}
-
-func Start(t Task) Job {
-	i := &impl{
-		close:  make(chan any, 1),
-		closed: make(chan error, 1),
+func True(a bool) {
+	if !a {
+		panic("assertion failed")
 	}
-
-	go func() {
-		i.closed <- t(i.close)
-	}()
-
-	return i
-}
-
-func (i *impl) Close() {
-	i.close <- struct{}{}
-}
-
-func (i *impl) Wait() error {
-	return <-i.closed
-}
-
-func (i *impl) WaitChan() <-chan error {
-	return i.closed
-}
-
-func (i *impl) Shutdown() error {
-	i.Close()
-
-	return i.Wait()
 }

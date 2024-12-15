@@ -74,6 +74,7 @@ func (c *client) Serve() {
 			case proto.Events:
 				c.events.Store(cmd.Args[0].(bool))
 			case proto.Kill:
+				c.player.Stop()
 				err = errQuit
 				kill = true
 			case proto.List:

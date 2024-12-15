@@ -169,4 +169,5 @@ func main() {
 		panic(err) // TODO:
 	}
 	s.Serve()
+	p.Close()
 }

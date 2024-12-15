@@ -31,6 +31,8 @@ const (
 	eventsChSize = 16
 )
 
+// TODO: Block active playlist editing.
+
 type Player struct {
 	// Mutex guards plists and curPlist fields.
 	// Any manipulation on that fields must be guarded with this mutex.
@@ -39,8 +41,8 @@ type Player struct {
 	curPlist *Playlist
 	// Used output driver.
 	output Output
-	// Playing thread, which manages decode-output loop.
-	pt *playingThread
+	// Playback engine.
+	engine *Engine
 	// Channel to notify client that player state has been changed.
 	events chan Event
 }
@@ -50,12 +52,11 @@ func New(fmts []format.Format, output Output) *Player {
 		plists:   make(map[string]*Playlist),
 		curPlist: NewPlaylist(vfsPlistName),
 		output:   output,
-		pt:       newPlayingThread(fmts, output),
+		engine:   NewEngine(fmts, output),
 		events:   make(chan Event, eventsChSize),
 	}
-	p.pt.Start()
-	p.pt.SetPlaylist(p.curPlist)
-	p.pt.SetStatusHandler(func(s *Status) {
+	p.engine.Start()
+	p.engine.SetStatusHandler(func(s *Status) {
 		if s.State == StateStopped {
 			p.notify(&StatusEvent{
 				State: s.State,
@@ -79,7 +80,7 @@ func (p *Player) Events() <-chan Event {
 }
 
 func (p *Player) Close() {
-	p.pt.Close()
+	p.engine.Close()
 }
 
 func (p *Player) Play(path *vfs.Path) error {
@@ -117,29 +118,29 @@ func (p *Player) Play(path *vfs.Path) error {
 			i++
 		}
 	}
-	p.pt.Play(p.curPlist, pos)
+	p.engine.Play(p.curPlist, pos)
 
 	return nil
 }
 
 func (p *Player) Stop() {
-	p.pt.Stop()
+	p.engine.Stop()
 }
 
 func (p *Player) Pause() {
-	p.pt.Pause()
+	p.engine.Pause()
 }
 
 func (p *Player) Next() {
-	p.pt.Next()
+	p.engine.Next()
 }
 
 func (p *Player) Prev() {
-	p.pt.Prev()
+	p.engine.Prev()
 }
 
 func (p *Player) Seek(pos int, rel bool) {
-	p.pt.Seek(pos, rel)
+	p.engine.Seek(pos, rel)
 }
 
 func (p *Player) Append(name string, path *vfs.Path) error {
@@ -206,7 +207,7 @@ func (p *Player) Delete(name string) error {
 
 	delete(p.plists, name)
 	if pl.Name() == p.curPlist.Name() {
-		p.pt.Stop()
+		p.engine.Stop()
 		p.curPlist = nil
 	}
 
@@ -255,7 +256,7 @@ func (p *Player) Playlists() []*Playlist {
 }
 
 func (p *Player) Status() *Status {
-	return p.pt.Status()
+	return p.engine.Status()
 }
 
 func (p *Player) userPlist(name string) (*Playlist, error) {
@@ -277,7 +278,7 @@ func (p *Player) replace(name string, pl *Playlist) {
 	p.plists[pl.Name()] = pl
 	if p.curPlist.Name() == name {
 		p.curPlist = pl
-		p.pt.SetPlaylist(pl)
+		// TODO: p.engine.SetPlaylist(pl)
 	}
 }
 

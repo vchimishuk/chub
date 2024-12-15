@@ -20,6 +20,7 @@ package player
 // Output interface represents audio autput driver (ALSA, OSS, ...).
 type Output interface {
 	// Output driver name. E.g. ALSA.
+	// TODO: Unused? Remove?
 	Name() string
 	// Open opens output audio device.
 	Open() error
@@ -44,9 +45,11 @@ type Output interface {
 	// Reset empties ouput buffer.
 	Reset()
 	// Pause pauses or resumes playback process.
-	Pause()
+	Pause() error
 	// Paused returns true if output driver is in paused state now.
 	Paused() bool
 	// Close closes output audio device.
+	//
+	// TODO: Return an error and handle it by the caller.
 	Close()
 }
