@@ -80,9 +80,9 @@ func (c *client) Serve() {
 			case proto.List:
 				recs, err = c.list(cmd.Args[0].(string))
 			case proto.Next:
-				c.player.Next()
+				err = c.player.Next()
 			case proto.Pause:
-				c.player.Pause()
+				err = c.player.Pause()
 			case proto.Ping:
 				// Do nothing.
 			case proto.Play:
@@ -108,14 +108,14 @@ func (c *client) Serve() {
 			case proto.Playlists:
 				recs = c.playlists()
 			case proto.Prev:
-				c.player.Prev()
+				err = c.player.Prev()
 			case proto.Seek:
-				c.player.Seek(cmd.Args[0].(int),
+				err = c.player.Seek(cmd.Args[0].(int),
 					cmd.Args[1].(bool))
 			case proto.Status:
 				recs = c.status()
 			case proto.Stop:
-				c.player.Stop()
+				err = c.player.Stop()
 			case proto.Quit:
 				err = errQuit
 			default:

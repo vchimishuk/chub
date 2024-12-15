@@ -129,33 +129,32 @@ func (e *Engine) Start() {
 	go e.run()
 }
 
-func (e *Engine) Close() {
-	// Wait confirmation from the worker to be sure it done its job.
-	<-e.msgs.Send(&message{cmd: cmdClose})
+func (e *Engine) Close() error {
+	return e.cmd(cmdClose, nil)
 }
 
-func (e *Engine) Stop() {
-	e.msgs.Send(&message{cmd: cmdStop})
+func (e *Engine) Stop() error {
+	return e.cmd(cmdStop, nil)
 }
 
-func (e *Engine) Next() {
-	e.msgs.Send(&message{cmd: cmdNext})
+func (e *Engine) Next() error {
+	return e.cmd(cmdNext, nil)
 }
 
-func (e *Engine) Prev() {
-	e.msgs.Send(&message{cmd: cmdPrev})
+func (e *Engine) Prev() error {
+	return e.cmd(cmdPrev, nil)
 }
 
-func (e *Engine) Pause() {
-	e.msgs.Send(&message{cmd: cmdPause})
+func (e *Engine) Pause() error {
+	return e.cmd(cmdPause, nil)
 }
 
-func (e *Engine) Play(plist *Playlist, pos int) {
-	e.msgs.Send(&message{cmd: cmdPlay, args: []interface{}{plist, pos}})
+func (e *Engine) Play(plist *Playlist, pos int) error {
+	return e.cmd(cmdPlay, []any{plist, pos})
 }
 
-func (e *Engine) Seek(pos int, rel bool) {
-	e.msgs.Send(&message{cmd: cmdSeek, args: []interface{}{pos, rel}})
+func (e *Engine) Seek(pos int, rel bool) error {
+	return e.cmd(cmdSeek, []any{pos, rel})
 }
 
 func (e *Engine) Status() *Status {
@@ -165,6 +164,15 @@ func (e *Engine) Status() *Status {
 
 func (e *Engine) SetStatusHandler(h func(*Status)) {
 	e.statusHandler = h
+}
+
+func (e *Engine) cmd(c command, args []any) error {
+	r := <-e.msgs.Send(&message{cmd: c, args: args})
+	if r == nil {
+		return nil
+	}
+
+	return r.(error)
 }
 
 // run executes messages handling loop and manages decoding & output goroutines.
@@ -189,32 +197,32 @@ func (e *Engine) run() {
 				if e.state != StateStopped {
 					e.stop()
 				}
-				e.play(msg.args[0].(*Playlist),
+				m.Result <- e.play(msg.args[0].(*Playlist),
 					msg.args[1].(int))
 				e.emitStatus()
 			case cmdClose:
-				e.stop()
+				m.Result <- e.stop()
 				quit = true
-				m.Result <- struct{}{}
 				e.emitStatus()
 			case cmdStop:
+				var err error
 				if e.state != StateStopped {
-					e.stop()
+					err = e.stop()
 					e.emitStatus()
 				}
+				m.Result <- err
 			case cmdPause:
-				e.pause()
+				m.Result <- e.pause()
 				e.emitStatus()
 			case cmdNext:
-				// TODO: Return error to the client?
-				//       Same for other commands.
-				e.next(false)
+				m.Result <- e.next(false)
 				e.emitStatus()
 			case cmdPrev:
-				e.prev()
+				m.Result <- e.prev()
 				e.emitStatus()
 			case cmdSeek:
-				e.seek(msg.args[0].(int), msg.args[1].(bool))
+				m.Result <- e.seek(msg.args[0].(int),
+					msg.args[1].(bool))
 			case cmdStatus:
 				m.Result <- e.status()
 			default:
@@ -305,13 +313,11 @@ func (e *Engine) stop() error {
 	}
 
 	if e.decoder != nil {
-		// TODO: derr = e.decoder.Close()
-		e.decoder.Close()
+		derr = e.decoder.Close()
 		e.decoder = nil
 	}
 	if e.output.IsOpen() {
-		// TODO: oerr = e.output.Close()
-		e.output.Close()
+		oerr = e.output.Close()
 	}
 
 	e.state = StateStopped
@@ -328,15 +334,21 @@ func (e *Engine) stop() error {
 func (e *Engine) pause() error {
 	switch e.state {
 	case StatePlaying:
-		// TODO: Handle error.
-		e.outputJob.Shutdown()
+		err := e.outputJob.Shutdown()
+		if err != nil {
+			return err
+		}
 		e.outputJob = nil
-		// TODO: Handle error.
-		e.output.Pause()
+		err = e.output.Pause()
+		if err != nil {
+			return err
+		}
 		e.state = StatePaused
 	case StatePaused:
-		// TODO: Handle error.
-		e.output.Pause()
+		err := e.output.Pause()
+		if err != nil {
+			return err
+		}
 		e.outputJob = job.Start(e.outputLoop)
 		e.state = StatePlaying
 	}
@@ -355,7 +367,7 @@ func (e *Engine) next(auto bool) error {
 			// End of the playlist. Playback will be stopped by
 			// outputLoop's signal.
 
-			// TODO: Marck ring somehow that this is
+			// TODO: Mark ring somehow that this is
 			//       the end of the track.
 			return nil
 		}
@@ -367,10 +379,17 @@ func (e *Engine) next(auto bool) error {
 
 		e.plistPos += 1
 		if !smooth {
-			// TODO: Handle error.
-			e.decoder.Close()
-			// TODO: Handle error.
-			e.openDecoder()
+			err := e.decoder.Close()
+			if err != nil {
+				logger.Error("decoder closing faile: %s", err)
+			}
+			err = e.openDecoder()
+			if err != nil {
+				// Call stop() to try cleanup.
+				e.stop()
+
+				return err
+			}
 		}
 		e.decodeJob = job.Start(e.decodeLoop)
 	} else {
@@ -381,6 +400,7 @@ func (e *Engine) next(auto bool) error {
 		e.stMutex.Unlock()
 
 		if plistPos == e.plist.Len()-1 {
+			// We are on the last track alread.
 			return nil
 		}
 

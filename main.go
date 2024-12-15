@@ -28,6 +28,7 @@ import (
 	"github.com/vchimishuk/chub/config"
 	"github.com/vchimishuk/chub/format"
 	"github.com/vchimishuk/chub/format/ffmpeg"
+	"github.com/vchimishuk/chub/logger"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/server"
 	"github.com/vchimishuk/chub/vfs"
@@ -169,5 +170,8 @@ func main() {
 		panic(err) // TODO:
 	}
 	s.Serve()
-	p.Close()
+	err = p.Close()
+	if err != nil {
+		logger.Error("failed to close player: %s", err)
+	}
 }

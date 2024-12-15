@@ -79,8 +79,8 @@ func (p *Player) Events() <-chan Event {
 	return p.events
 }
 
-func (p *Player) Close() {
-	p.engine.Close()
+func (p *Player) Close() error {
+	return p.engine.Close()
 }
 
 func (p *Player) Play(path *vfs.Path) error {
@@ -118,29 +118,33 @@ func (p *Player) Play(path *vfs.Path) error {
 			i++
 		}
 	}
-	p.engine.Play(p.curPlist, pos)
+
+	err = p.engine.Play(p.curPlist, pos)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (p *Player) Stop() {
-	p.engine.Stop()
+func (p *Player) Stop() error {
+	return p.engine.Stop()
 }
 
-func (p *Player) Pause() {
-	p.engine.Pause()
+func (p *Player) Pause() error {
+	return p.engine.Pause()
 }
 
-func (p *Player) Next() {
-	p.engine.Next()
+func (p *Player) Next() error {
+	return p.engine.Next()
 }
 
-func (p *Player) Prev() {
-	p.engine.Prev()
+func (p *Player) Prev() error {
+	return p.engine.Prev()
 }
 
-func (p *Player) Seek(pos int, rel bool) {
-	p.engine.Seek(pos, rel)
+func (p *Player) Seek(pos int, rel bool) error {
+	return p.engine.Seek(pos, rel)
 }
 
 func (p *Player) Append(name string, path *vfs.Path) error {
@@ -207,7 +211,10 @@ func (p *Player) Delete(name string) error {
 
 	delete(p.plists, name)
 	if pl.Name() == p.curPlist.Name() {
-		p.engine.Stop()
+		err := p.engine.Stop()
+		if err != nil {
+			return err
+		}
 		p.curPlist = nil
 	}
 

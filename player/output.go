@@ -49,7 +49,5 @@ type Output interface {
 	// Paused returns true if output driver is in paused state now.
 	Paused() bool
 	// Close closes output audio device.
-	//
-	// TODO: Return an error and handle it by the caller.
-	Close()
+	Close() error
 }

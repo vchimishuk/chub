@@ -127,9 +127,12 @@ func (d *decoder) Channels() int {
 	return int(C.ffmpeg_channels(d.file))
 }
 
-func (d *decoder) Close() {
+func (d *decoder) Close() error {
 	C.ffmpeg_close(d.file)
 	C.ffmpeg_free(d.file)
+
+	// TODO: Return error.
+	return nil
 }
 
 type ffmpeg struct {

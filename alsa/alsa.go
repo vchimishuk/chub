@@ -93,15 +93,19 @@ func (a *Alsa) Reset() {
 	a.handle.Reset()
 }
 
-func (a *Alsa) Pause() {
-	a.handle.Pause()
+func (a *Alsa) Pause() error {
+	// TODO: Fix ALSA error on pause.
+	// return a.handle.Pause()
+	return nil
 }
 
 func (a *Alsa) Paused() bool {
 	return a.handle.Paused()
 }
 
-func (a *Alsa) Close() {
-	a.handle.Close()
+func (a *Alsa) Close() error {
+	err := a.handle.Close()
 	a.open = false
+
+	return err
 }

@@ -276,8 +276,11 @@ func (handle *Handle) Paused() bool {
 }
 
 // Close closes stream and release the handler.
-func (handle *Handle) Close() {
+func (handle *Handle) Close() error {
 	C.snd_pcm_close(handle.cHandle)
+
+	// TODO: Return error.
+	return nil
 }
 
 // SampleSize returns one sample size in bytes.

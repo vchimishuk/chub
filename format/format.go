@@ -42,13 +42,14 @@ type Decoder interface {
 	// Seek sets new position in seconds to start decoding from.
 	Seek(pos int) error
 	// Time returns current decoded position in seconds.
+	// TODO: Time should be in millis or nanos.
 	Time() int
 	// SampleRate returns sample rate of decoded stream.
 	SampleRate() int
 	// Channels returns number of channels in decoded stream.
 	Channels() int
 	// Close releases decoder resources.
-	Close()
+	Close() error
 }
 
 type Format interface {
