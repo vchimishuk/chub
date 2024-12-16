@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -15,122 +15,54 @@
 // You should have received a copy of the GNU General Public License
 // along with Chub. If not, see <http://www.gnu.org/licenses/>.
 
-// Confiruration files parser implementation.
-//
-// Configuration file expected to be a traditional UNIX
-// key-value plain text file. E.g.
-//
-// foo.bar = "some value"
-// foo.baz = "some another value"
-// bar = 14
 package config
 
 import (
-	"bufio"
 	"errors"
-	"fmt"
-	"io"
-	"os"
-	"strconv"
-	"strings"
+	"slices"
+
+	"github.com/vchimishuk/config"
 )
 
-type Error struct {
-	Line    int
-	Message string
+var spec = &config.Spec{
+	Strict: true,
+	Properties: []*config.PropertySpec{
+		&config.PropertySpec{
+			Type:   config.TypeString,
+			Name:   "output",
+			Parser: parseEnum([]string{"alsa", "oss"}),
+		},
+		&config.PropertySpec{
+			Type: config.TypeString,
+			Name: "server-host",
+		},
+		&config.PropertySpec{
+			Type: config.TypeInt,
+			Name: "server-port",
+		},
+		&config.PropertySpec{
+			Type: config.TypeString,
+			Name: "vfs-root",
+		},
+	},
 }
 
-func (err Error) Error() string {
-	return fmt.Sprintf("%d: %s", err.Line, err.Message)
+func ParseFile(path string) (*config.Config, error) {
+	return config.ParseFile(spec, path)
 }
 
-type Config struct {
-	data map[string]string
+// TODO: Use io.Reader instead of string.
+func Parse(s string) (*config.Config, error) {
+	return config.Parse(spec, s)
 }
 
-func (c *Config) Defined(name string) bool {
-	_, ok := c.data[name]
-
-	return ok
-}
-
-func (c *Config) String(name string, def string) string {
-	if val, ok := c.data[name]; ok {
-		return val
-	} else {
-		return def
-	}
-
-}
-
-func (c *Config) Int(name string, def int) (int, error) {
-	if val, ok := c.data[name]; ok {
-		return strconv.Atoi(val)
-	} else {
-		return def, nil
-	}
-}
-
-func (c *Config) Bool(name string, def bool) (bool, error) {
-	if val, ok := c.data[name]; ok {
-		val = strings.ToLower(val)
-
-		if val == "true" {
-			return true, nil
-		} else if val == "false" {
-			return false, nil
-		} else {
-			return false, errors.New("not valid bool value")
-		}
-	} else {
-		return def, nil
-	}
-}
-
-const spaceChars = " \t\n\v"
-
-func ParseFile(file string) (*Config, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return Parse(f)
-}
-
-func Parse(reader io.Reader) (*Config, error) {
-	data := make(map[string]string)
-	in := bufio.NewReader(reader)
-	ln := 0
-
-	for {
-		ln++
-		line, err := in.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				return nil, err
-			}
+func parseEnum(vals []string) func(v any) (any, error) {
+	return func(v any) (any, error) {
+		s := v.(string)
+		if !slices.Contains(vals, s) {
+			return nil, errors.New("unsupported value")
 		}
 
-		line = strings.Trim(line, spaceChars)
-		if len(line) == 0 || line[0] == '#' {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) < 2 {
-			return nil, &Error{Line: ln,
-				Message: "key=value line format expected"}
-		}
-
-		key := strings.Trim(parts[0], spaceChars)
-		val := strings.Trim(parts[1], spaceChars)
-
-		data[key] = val
+		return s, nil
 	}
-
-	return &Config{data: data}, nil
 }

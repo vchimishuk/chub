@@ -1,0 +1,11 @@
+# Directory to use as a filesystem root. It is possible to browse
+# only specified directory and its sub-directories.
+vfs-root = "/home/user/music"
+
+# Host and port to listen for clients on.
+server-host = "127.0.0.1"
+server-port = 5115
+
+# Output driver to use.
+# Available drivers are: alsa, oss.
+output = "oss"

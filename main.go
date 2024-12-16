@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	vconfig "github.com/vchimishuk/config"
+
 	"github.com/vchimishuk/chub/alsa"
 	"github.com/vchimishuk/chub/config"
 	"github.com/vchimishuk/chub/format"
@@ -39,12 +41,6 @@ const (
 	ProgName    = "chub"
 	ProgVersion = "0.0.1"
 )
-
-var DefaultConfigFiles = []string{
-	"~/.config/chub/chub.conf",
-	"~/.chub.conf",
-	"/etc/chub.conf",
-}
 
 var OptDescs = []*opt.Desc{
 	{"c", "config", opt.ArgString, "FILE",
@@ -72,7 +68,7 @@ func printUsage() {
 
 func printVersion() {
 	fmt.Printf("%s %s\n", ProgName, ProgVersion)
-	fmt.Println("Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>")
+	fmt.Println("Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>")
 	fmt.Println("Chub comes with ABSOLUTELY NO WARRANTY.")
 	fmt.Println("You may redistribute copies of Chub")
 	fmt.Println("under the terms of the GNU General Public License.")
@@ -92,29 +88,33 @@ func expandPath(p string) (string, error) {
 	}
 }
 
-func readConfig(files []string) (*config.Config, error) {
-	for _, fname := range files {
-		fname, err := expandPath(fname)
+func parseConfig(file string) (*vconfig.Config, error) {
+	if file != "" {
+		f, err := expandPath(file)
 		if err != nil {
 			return nil, err
 		}
-		_, err = os.Stat(fname)
-		if os.IsNotExist(err) {
-			continue
-		}
+		cfg, err := config.ParseFile(f)
 		if err != nil {
-			return nil, err
-		}
-
-		cfg, err := config.ParseFile(fname)
-		if err != nil {
-			return nil, err
+			if os.IsNotExist(err) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%s: %w", f, err)
 		}
 
 		return cfg, nil
 	}
 
-	return nil, nil
+	f, err := expandPath("~/.config/chub/chub.conf")
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := config.ParseFile(f)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("%s: %w", f, err)
+	}
+
+	return cfg, nil
 }
 
 func main() {
@@ -134,40 +134,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	var cfg *config.Config
-	if name, ok := opts.String("config"); ok {
-		c, err := readConfig([]string{name})
-		if err != nil {
-			fatal("failed to read configuration file: %s", err)
-		} else if cfg == nil {
-			fatal("file not found: %s", name)
-		}
-		cfg = c
-	} else {
-		c, err := readConfig(DefaultConfigFiles)
-		if err != nil {
-			fatal("failed to read configuration file: %s", err)
-		} else if c == nil {
-			c = &config.Config{}
-		}
-		cfg = c
+	cfg, err := parseConfig(opts.StringOr("config", ""))
+	if err != nil {
+		fatal("%s", err)
+	}
+	if cfg == nil {
+		cfg = &vconfig.Config{}
 	}
 
 	ffmpegFmt := ffmpeg.NewFormat()
 	format.Register(ffmpegFmt)
 
-	err = vfs.SetRoot(cfg.String("vfs.root", "/"))
+	err = vfs.SetRoot(cfg.StringOr("vfs-root", "/"))
 	if err != nil {
 		panic(err)
 	}
 
-	output := alsa.New()
+	var output player.Output
+	switch cfg.StringOr("output", "alsa") {
+	case "alsa":
+		output = alsa.New()
+	default:
+		panic("unsupported output")
+	}
+
 	p := player.New([]format.Format{ffmpegFmt}, output)
 
 	s := server.New(p)
-	err = s.Listen("127.0.0.1", 5115)
+	err = s.Listen(cfg.StringOr("server-host", "0.0.0.0"),
+		cfg.IntOr("server-port", 5115))
 	if err != nil {
-		panic(err) // TODO:
+		fatal("%s", err)
 	}
 	s.Serve()
 	err = p.Close()

@@ -19,8 +19,6 @@ package player
 
 import (
 	"sync"
-
-	"github.com/vchimishuk/chub/assert"
 )
 
 // Buffer contains piece of decoded PCM data with some metadata attached.
@@ -108,7 +106,7 @@ func (r *BufferRing) OfferFree(b *Buffer) {
 	if !r.open {
 		return
 	}
-	assert.True(r.len > 0)
+	assertTrue(r.len > 0)
 
 	b.plistPos = 0
 	b.trackPos = 0
@@ -138,7 +136,7 @@ func (r *BufferRing) PeekFree() *Buffer {
 		}
 	}
 
-	assert.True(r.len < len(r.bufs))
+	assertTrue(r.len < len(r.bufs))
 	i := (r.off + r.len) % len(r.bufs)
 
 	return r.bufs[i]
@@ -154,7 +152,7 @@ func (r *BufferRing) Offer(b *Buffer) {
 		return
 	}
 
-	assert.True(r.len < len(r.bufs))
+	assertTrue(r.len < len(r.bufs))
 	i := (r.off + r.len) % len(r.bufs)
 	r.bufs[i] = b
 	r.len++
@@ -177,7 +175,14 @@ func (r *BufferRing) Peek() *Buffer {
 			return nil
 		}
 	}
-	assert.True(r.len > 0)
+	assertTrue(r.len > 0)
 
 	return r.bufs[r.off]
+}
+
+// Runtime assertion to fail fast.
+func assertTrue(a bool) {
+	if !a {
+		panic("assertion failed")
+	}
 }

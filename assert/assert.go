@@ -17,8 +17,27 @@
 
 package assert
 
-func True(a bool) {
+import (
+	"testing"
+)
+
+func True(t *testing.T, a bool) {
 	if !a {
-		panic("assertion failed")
+		t.Fatal()
+	}
+}
+
+func Nil(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Error(t *testing.T, err error, s string) {
+	if err == nil {
+		t.Fatal("non-nil expected")
+	}
+	if err.Error() != s {
+		t.Fatalf("`%s` != `%s`", err.Error(), s)
 	}
 }

@@ -33,13 +33,13 @@ func TestPeekFree(t *testing.T) {
 
 	for i := 0; i < nbuf; i++ {
 		b := c.PeekFree()
-		assert.True(b != nil)
+		assert.True(t, b != nil)
 		c.Offer(b)
 	}
 
 	b := c.Peek()
 	c.OfferFree(b)
-	assert.True(c.PeekFree() != nil)
+	assert.True(t, c.PeekFree() != nil)
 }
 
 func TestPeek(t *testing.T) {
@@ -53,7 +53,7 @@ func TestPeek(t *testing.T) {
 	go func() {
 		for i := byte(0); i < n; i++ {
 			b := c.PeekFree()
-			assert.True(cap(b.data) == bufsz)
+			assert.True(t, cap(b.data) == bufsz)
 			b.data = b.data[0:bufsz]
 			b.data[0] = (i % 127)
 			b.data[cap(b.data)-1] = -i
@@ -72,8 +72,8 @@ func TestPeek(t *testing.T) {
 			if b == nil {
 				break
 			}
-			assert.True(b.data[0] == i)
-			assert.True(b.data[cap(b.data)-1] == -i)
+			assert.True(t, b.data[0] == i)
+			assert.True(t, b.data[cap(b.data)-1] == -i)
 			r.Store(r.Load() + 1)
 			c.OfferFree(b)
 		}
@@ -82,5 +82,5 @@ func TestPeek(t *testing.T) {
 	for r.Load() != int32(n) {
 		time.Sleep(time.Millisecond)
 	}
-	assert.True(r.Load() == int32(n))
+	assert.True(t, r.Load() == int32(n))
 }

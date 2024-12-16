@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -18,77 +18,38 @@
 package config
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/vchimishuk/chub/assert"
 )
 
-func TestString(t *testing.T) {
-	input := `
-# A comment.
-foo = foo
-bar = a bar
-`
+func TestOutput(t *testing.T) {
+	c, err := Parse(`output = "alsa"`)
+	assert.Nil(t, err)
+	assert.True(t, c.String("output") == "alsa")
 
-	cfg, err := Parse(strings.NewReader(input))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.Defined("foo") || !cfg.Defined("bar") {
-		t.Fatal()
-	}
-	if cfg.String("foo", "") != "foo" {
-		t.Fatal()
-	}
-	if cfg.String("bar", "") != "a bar" {
-		t.Fatal()
-	}
-	if def := cfg.String("undefined", "def"); def != "def" {
-		t.Fatal()
-	}
+	c, err = Parse(`output = "oss"`)
+	assert.Nil(t, err)
+	assert.True(t, c.String("output") == "oss")
+
+	_, err = Parse(`output = "unsupported"`)
+	assert.Error(t, err, "1: unsupported value")
 }
 
-func TestBool(t *testing.T) {
-	input := `
-foo = true
-bar = false
-baz = not a bool
-`
-
-	cfg, err := Parse(strings.NewReader(input))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.Defined("foo") || !cfg.Defined("bar") || !cfg.Defined("baz") {
-		t.Fatal()
-	}
-	if b, err := cfg.Bool("foo", false); b != true || err != nil {
-		t.Fatal()
-	}
-	if b, err := cfg.Bool("bar", true); b != false || err != nil {
-		t.Fatal()
-	}
-	if _, err := cfg.Bool("baz", false); err == nil {
-		t.Fatal()
-	}
+func TestServerHost(t *testing.T) {
+	c, err := Parse(`server-host = "localhost"`)
+	assert.Nil(t, err)
+	assert.True(t, c.String("server-host") == "localhost")
 }
 
-func TestInt(t *testing.T) {
-	input := `
-foo = 123
-bar = baz
-`
+func TestServerPort(t *testing.T) {
+	c, err := Parse(`server-port = 5115`)
+	assert.Nil(t, err)
+	assert.True(t, c.Int("server-port") == 5115)
+}
 
-	cfg, err := Parse(strings.NewReader(input))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.Defined("foo") {
-		t.Fatal()
-	}
-	if i, err := cfg.Int("foo", 0); i != 123 || err != nil {
-		t.Fatal()
-	}
-	if _, err := cfg.Int("bar", 0); err == nil {
-		t.Fatal()
-	}
+func TestVfsRoot(t *testing.T) {
+	c, err := Parse(`vfs-root = "/home/user/music"`)
+	assert.Nil(t, err)
+	assert.True(t, c.String("vfs-root") == "/home/user/music")
 }
