@@ -197,8 +197,6 @@ int ffmpeg_open(struct ffmpeg_file *file, const char *filename)
         return AVERROR_STREAM_NOT_FOUND;
     }
 
-    // TODO: Chubs config should allow to config output format values,
-    //       which is passed to ALSA and here.
     file->channels = 2;
     file->sample_rate = 44100;
     file->sample_fmt = AV_SAMPLE_FMT_S16;

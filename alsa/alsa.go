@@ -37,7 +37,7 @@ func (a *Alsa) Open() error {
 		return err
 	}
 
-	a.handle.SampleFormat = asoundlib.SampleFormatS16LE
+	a.handle.SampleFormat = asoundlib.SampleFormatS16
 	a.handle.SampleRate = 44100
 	a.handle.Channels = 2
 	a.handle.ApplyHwParams()

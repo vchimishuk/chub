@@ -56,49 +56,48 @@ const (
 	SampleFormatU16LE = C.SND_PCM_FORMAT_U16_LE
 	// Unsigned 16 bit Big Endian
 	SampleFormatU16BE = C.SND_PCM_FORMAT_U16_BE
-	/*
-	 SND_PCM_FORMAT_S24_LE 	Signed 24 bit Little Endian using low three bytes in 32-bit word
-	 SND_PCM_FORMAT_S24_BE 	Signed 24 bit Big Endian using low three bytes in 32-bit word
-	 SND_PCM_FORMAT_U24_LE 	Unsigned 24 bit Little Endian using low three bytes in 32-bit word
-	 SND_PCM_FORMAT_U24_BE 	Unsigned 24 bit Big Endian using low three bytes in 32-bit word
-	 SND_PCM_FORMAT_S32_LE 	Signed 32 bit Little Endian
-	 SND_PCM_FORMAT_S32_BE 	Signed 32 bit Big Endian
-	 SND_PCM_FORMAT_U32_LE 	Unsigned 32 bit Little Endian
-	 SND_PCM_FORMAT_U32_BE 	Unsigned 32 bit Big Endian
-	 SND_PCM_FORMAT_FLOAT_LE 	Float 32 bit Little Endian, Range -1.0 to 1.0
-	 SND_PCM_FORMAT_FLOAT_BE 	Float 32 bit Big Endian, Range -1.0 to 1.0
-	 SND_PCM_FORMAT_FLOAT64_LE 	Float 64 bit Little Endian, Range -1.0 to 1.0
-	 SND_PCM_FORMAT_FLOAT64_BE 	Float 64 bit Big Endian, Range -1.0 to 1.0
-	 SND_PCM_FORMAT_IEC958_SUBFRAME_LE 	IEC-958 Little Endian
-	 SND_PCM_FORMAT_IEC958_SUBFRAME_BE 	IEC-958 Big Endian
-	 SND_PCM_FORMAT_MU_LAW 	Mu-Law
-	 SND_PCM_FORMAT_A_LAW 	A-Law
-	 SND_PCM_FORMAT_IMA_ADPCM 	Ima-ADPCM
-	 SND_PCM_FORMAT_MPEG 	MPEG
-	 SND_PCM_FORMAT_GSM 	GSM
-	 SND_PCM_FORMAT_SPECIAL 	Special
-	 SND_PCM_FORMAT_S24_3LE 	Signed 24bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_S24_3BE 	Signed 24bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_U24_3LE 	Unsigned 24bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_U24_3BE 	Unsigned 24bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_S20_3LE 	Signed 20bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_S20_3BE 	Signed 20bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_U20_3LE 	Unsigned 20bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_U20_3BE 	Unsigned 20bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_S18_3LE 	Signed 18bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_S18_3BE 	Signed 18bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_U18_3LE 	Unsigned 18bit Little Endian in 3bytes format
-	 SND_PCM_FORMAT_U18_3BE 	Unsigned 18bit Big Endian in 3bytes format
-	 SND_PCM_FORMAT_S16 	Signed 16 bit CPU endian
-	 SND_PCM_FORMAT_U16 	Unsigned 16 bit CPU endian
-	 SND_PCM_FORMAT_S24 	Signed 24 bit CPU endian
-	 SND_PCM_FORMAT_U24 	Unsigned 24 bit CPU endian
-	 SND_PCM_FORMAT_S32 	Signed 32 bit CPU endian
-	 SND_PCM_FORMAT_U32 	Unsigned 32 bit CPU endian
-	 SND_PCM_FORMAT_FLOAT 	Float 32 bit CPU endian
-	 SND_PCM_FORMAT_FLOAT64 	Float 64 bit CPU endian
-	 SND_PCM_FORMAT_IEC958_SUBFRAME 	IEC-958 CPU Endian
-	*/
+	// SND_PCM_FORMAT_S24_LE 	Signed 24 bit Little Endian using low three bytes in 32-bit word
+	// SND_PCM_FORMAT_S24_BE 	Signed 24 bit Big Endian using low three bytes in 32-bit word
+	// SND_PCM_FORMAT_U24_LE 	Unsigned 24 bit Little Endian using low three bytes in 32-bit word
+	// SND_PCM_FORMAT_U24_BE 	Unsigned 24 bit Big Endian using low three bytes in 32-bit word
+	// SND_PCM_FORMAT_S32_LE 	Signed 32 bit Little Endian
+	// SND_PCM_FORMAT_S32_BE 	Signed 32 bit Big Endian
+	// SND_PCM_FORMAT_U32_LE 	Unsigned 32 bit Little Endian
+	// SND_PCM_FORMAT_U32_BE 	Unsigned 32 bit Big Endian
+	// SND_PCM_FORMAT_FLOAT_LE 	Float 32 bit Little Endian, Range -1.0 to 1.0
+	// SND_PCM_FORMAT_FLOAT_BE 	Float 32 bit Big Endian, Range -1.0 to 1.0
+	// SND_PCM_FORMAT_FLOAT64_LE 	Float 64 bit Little Endian, Range -1.0 to 1.0
+	// SND_PCM_FORMAT_FLOAT64_BE 	Float 64 bit Big Endian, Range -1.0 to 1.0
+	// SND_PCM_FORMAT_IEC958_SUBFRAME_LE 	IEC-958 Little Endian
+	// SND_PCM_FORMAT_IEC958_SUBFRAME_BE 	IEC-958 Big Endian
+	// SND_PCM_FORMAT_MU_LAW 	Mu-Law
+	// SND_PCM_FORMAT_A_LAW 	A-Law
+	// SND_PCM_FORMAT_IMA_ADPCM 	Ima-ADPCM
+	// SND_PCM_FORMAT_MPEG 	MPEG
+	// SND_PCM_FORMAT_GSM 	GSM
+	// SND_PCM_FORMAT_SPECIAL 	Special
+	// SND_PCM_FORMAT_S24_3LE 	Signed 24bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_S24_3BE 	Signed 24bit Big Endian in 3bytes format
+	// SND_PCM_FORMAT_U24_3LE 	Unsigned 24bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_U24_3BE 	Unsigned 24bit Big Endian in 3bytes format
+	// SND_PCM_FORMAT_S20_3LE 	Signed 20bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_S20_3BE 	Signed 20bit Big Endian in 3bytes format
+	// SND_PCM_FORMAT_U20_3LE 	Unsigned 20bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_U20_3BE 	Unsigned 20bit Big Endian in 3bytes format
+	// SND_PCM_FORMAT_S18_3LE 	Signed 18bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_S18_3BE 	Signed 18bit Big Endian in 3bytes format
+	// SND_PCM_FORMAT_U18_3LE 	Unsigned 18bit Little Endian in 3bytes format
+	// SND_PCM_FORMAT_U18_3BE 	Unsigned 18bit Big Endian in 3bytes format
+	// Signed 16 bit CPU endian
+	SampleFormatS16 = C.SND_PCM_FORMAT_S16
+	// SND_PCM_FORMAT_U16 	Unsigned 16 bit CPU endian
+	// SND_PCM_FORMAT_S24 	Signed 24 bit CPU endian
+	// SND_PCM_FORMAT_U24 	Unsigned 24 bit CPU endian
+	// SND_PCM_FORMAT_S32 	Signed 32 bit CPU endian
+	// SND_PCM_FORMAT_U32 	Unsigned 32 bit CPU endian
+	// SND_PCM_FORMAT_FLOAT 	Float 32 bit CPU endian
+	// SND_PCM_FORMAT_FLOAT64 	Float 64 bit CPU endian
+	// SND_PCM_FORMAT_IEC958_SUBFRAME 	IEC-958 CPU Endian
 )
 
 // Open mode constants.

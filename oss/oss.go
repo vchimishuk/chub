@@ -58,7 +58,7 @@ func (o *Oss) Open() error {
 	o.fd = int(fd)
 
 	// TODO: Try native order here, ALSA and FFMpeg.
-	e, err := C.oss_format(C.int(o.fd), C.AFMT_S16_LE)
+	e, err := C.oss_format(C.int(o.fd), C.AFMT_S16_NE)
 	if e == -1 {
 		return err
 	}
