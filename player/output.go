@@ -1,4 +1,4 @@
-// Copyright 2016 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -19,35 +19,20 @@ package player
 
 // Output interface represents audio autput driver (ALSA, OSS, ...).
 type Output interface {
-	// Output driver name. E.g. ALSA.
-	// TODO: Unused? Remove?
-	Name() string
 	// Open opens output audio device.
 	Open() error
-	// IsOpen returns true if output is in open state.
-	IsOpen() bool
-	// Returns current sample rate.
-	SampleRate() int
 	// Set new value for sample rate parameter.
-	SetSampleRate(rate int)
-	// Returns current channels value.
-	Channels() int
+	// TODO: Handle error by client.
+	SetSampleRate(rate int) error
 	// Set number of channels.
-	SetChannels(channels int)
-	// Wait waits some free space in output buffer, but not more than
-	// maxDelay milliseconds. true result value means that output is
-	// ready for new portion of data, false -- timeout has occured.
-	Wait(maxDelay int) (ok bool, err error)
-	// AvailUpdate returns free size of output buffer. In bytes.
-	AvailUpdate() (size int, err error)
+	// TODO: Handle error by client.
+	SetChannels(channels int) error
 	// Write new portion of data into buffer.
 	Write(buf []byte) (written int, err error)
 	// Reset empties ouput buffer.
-	Reset()
+	Flush() error
 	// Pause pauses or resumes playback process.
 	Pause() error
-	// Paused returns true if output driver is in paused state now.
-	Paused() bool
 	// Close closes output audio device.
 	Close() error
 }

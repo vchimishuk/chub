@@ -20,22 +20,14 @@ package alsa
 
 import "github.com/vchimishuk/chub/alsa/asoundlib"
 
-// DriverName is the string name of the alsa driver.
-var DriverName string = "alsa"
-
 // Alsa aoutput driter handler structure.
 type Alsa struct {
 	handle *asoundlib.Handle
-	open   bool
 }
 
 // New returns newly initialized alsa output driver.
 func New() *Alsa {
 	return &Alsa{}
-}
-
-func (a *Alsa) Name() string {
-	return "ALSA"
 }
 
 func (a *Alsa) Open() error {
@@ -50,31 +42,23 @@ func (a *Alsa) Open() error {
 	a.handle.Channels = 2
 	a.handle.ApplyHwParams()
 
-	a.open = true
-
 	return nil
 }
 
-func (a *Alsa) IsOpen() bool {
-	return a.open
-}
-
-func (a *Alsa) SampleRate() int {
-	return a.handle.SampleRate
-}
-
-func (a *Alsa) SetSampleRate(rate int) {
+func (a *Alsa) SetSampleRate(rate int) error {
 	a.handle.SampleRate = rate
 	a.handle.ApplyHwParams()
+
+	// TODO:
+	return nil
 }
 
-func (a *Alsa) Channels() int {
-	return a.handle.Channels
-}
-
-func (a *Alsa) SetChannels(channels int) {
+func (a *Alsa) SetChannels(channels int) error {
 	a.handle.Channels = channels
 	a.handle.ApplyHwParams()
+
+	// TODO:
+	return nil
 }
 
 func (a *Alsa) Wait(maxDelay int) (ok bool, err error) {
@@ -89,8 +73,11 @@ func (a *Alsa) Write(buf []byte) (written int, err error) {
 	return a.handle.Write(buf)
 }
 
-func (a *Alsa) Reset() {
+func (a *Alsa) Flush() error {
+	// TODO: Error.
 	a.handle.Reset()
+
+	return nil
 }
 
 func (a *Alsa) Pause() error {
@@ -104,8 +91,5 @@ func (a *Alsa) Paused() bool {
 }
 
 func (a *Alsa) Close() error {
-	err := a.handle.Close()
-	a.open = false
-
-	return err
+	return a.handle.Close()
 }

@@ -316,7 +316,7 @@ func (e *Engine) stop() error {
 		derr = e.decoder.Close()
 		e.decoder = nil
 	}
-	if e.output.IsOpen() {
+	if e.state != StateStopped {
 		oerr = e.output.Close()
 	}
 

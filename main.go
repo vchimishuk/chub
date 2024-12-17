@@ -31,6 +31,7 @@ import (
 	"github.com/vchimishuk/chub/format"
 	"github.com/vchimishuk/chub/format/ffmpeg"
 	"github.com/vchimishuk/chub/logger"
+	"github.com/vchimishuk/chub/oss"
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/server"
 	"github.com/vchimishuk/chub/vfs"
@@ -154,6 +155,8 @@ func main() {
 	switch cfg.StringOr("output", "alsa") {
 	case "alsa":
 		output = alsa.New()
+	case "oss":
+		output = oss.New()
 	default:
 		panic("unsupported output")
 	}
