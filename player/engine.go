@@ -375,7 +375,8 @@ func (e *Engine) next(auto bool) error {
 
 		cur := e.plist.Get(e.plistPos)
 		next := e.plist.Get(e.plistPos + 1)
-		smooth := cur.Path.File() == next.Path.File() &&
+		smooth := cur.Part &&
+			cur.Path.File() == next.Path.File() &&
 			cur.End == next.Start
 
 		e.plistPos += 1
@@ -504,6 +505,14 @@ func (e *Engine) openDecoder() error {
 func (e *Engine) decodeLoop(close <-chan any) error {
 	var n int
 	var err error
+	// Time when to stop decoding to give engine a chance to change
+	// its state, to make it switch to the next track.
+	// Relevant only for partial tracks.
+	var end int = -1
+	t := e.plist.Get(e.plistPos)
+	if t.Part {
+		end = t.End
+	}
 
 loop:
 	for {
@@ -513,6 +522,12 @@ loop:
 		default:
 		}
 
+		time := e.decoder.Time()
+		if end != -1 && time >= end {
+			// End of partial track.
+			break
+		}
+
 		buf := e.ring.PeekFree()
 		if buf == nil {
 			// Ring has been closed -- stop request.
@@ -520,7 +535,7 @@ loop:
 		}
 
 		buf.plistPos = e.plistPos
-		buf.trackPos = e.decoder.Time()
+		buf.trackPos = time
 		n, err = e.decoder.Read(buf.data[0:cap(buf.data)])
 		if err != nil {
 			// Decoding error -- return the error.
