@@ -40,6 +40,10 @@ type BufferRing struct {
 	// true if BufferRing is open. If BufferRing is closed it is not allowed
 	// producer to call Offer() any more.
 	open bool
+	// true if consumer should discard all data left in the ring after
+	// Close() call. Otherwise consumer consumes all data offered before
+	// Close() has been called.
+	flush bool
 	// Ring array of the buffers.
 	bufs []*Buffer
 	// Index of the first ready buffer.
@@ -60,7 +64,7 @@ func NewBufferRing(bufsz int, nbuf int) *BufferRing {
 	bufs := make([]*Buffer, nbuf)
 
 	for i := 0; i < nbuf; i++ {
-		bufs[i] = &Buffer{data: make([]byte, 0, bufsz)}
+		bufs[i] = &Buffer{data: make([]byte, bufsz, bufsz)}
 	}
 
 	return &BufferRing{
@@ -76,14 +80,16 @@ func (r *BufferRing) Open() {
 	defer r.freeCond.L.Unlock()
 
 	r.open = true
+	r.flush = false
 	r.off = 0
 	r.len = 0
 }
 
 // Close closes BufferRing. Consumer is still allowed to consume all data
 // contained by BufferRing as usual. After that all next Peek() calls
-// will return nil signalling end of the data.
-func (r *BufferRing) Close() {
+// will return nil signalling end of the data. `flush` flag discards unconsumed
+// data in the ring.
+func (r *BufferRing) Close(flush bool) {
 	r.freeCond.L.Lock()
 	defer r.freeCond.L.Unlock()
 
@@ -91,8 +97,7 @@ func (r *BufferRing) Close() {
 		return
 	}
 	r.open = false
-	r.off = 0
-	r.len = 0
+	r.flush = flush
 	r.freeCond.Signal()
 	r.readyCond.Signal()
 }
@@ -103,14 +108,10 @@ func (r *BufferRing) OfferFree(b *Buffer) {
 	r.freeCond.L.Lock()
 	defer r.freeCond.L.Unlock()
 
-	if !r.open {
-		return
-	}
 	assertTrue(r.len > 0)
-
 	b.plistPos = 0
 	b.trackPos = 0
-	b.data = b.data[0:0]
+	b.data = b.data[0:cap(b.data)]
 	r.bufs[r.off] = b
 	r.off = (r.off + 1) % len(r.bufs)
 	r.len--
@@ -125,6 +126,7 @@ func (r *BufferRing) PeekFree() *Buffer {
 	defer r.freeCond.L.Unlock()
 
 	if !r.open {
+		// It is not allowed to offer data to closed ring.
 		return nil
 	}
 
@@ -149,6 +151,7 @@ func (r *BufferRing) Offer(b *Buffer) {
 	defer r.readyCond.L.Unlock()
 
 	if !r.open {
+		// It is not allowed to offer data to closed ring.
 		return
 	}
 
@@ -166,12 +169,19 @@ func (r *BufferRing) Peek() *Buffer {
 	r.readyCond.L.Lock()
 	defer r.readyCond.L.Unlock()
 
+	if !r.open && r.flush {
+		// Ring has been closed with discard all data flag.
+		return nil
+	}
 	if r.len == 0 {
 		if !r.open {
+			// Since ring is closed there is no sense to wait
+			// for data any more.
 			return nil
 		}
 		r.readyCond.Wait()
 		if r.len == 0 {
+			// Ring has been closed.
 			return nil
 		}
 	}

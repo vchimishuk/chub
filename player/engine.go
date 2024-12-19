@@ -229,6 +229,7 @@ func (e *Engine) run() {
 				panic("unsupported command")
 			}
 		case err := <-decodeDone:
+			e.decodeJob = nil
 			if err == nil {
 				e.next(true)
 			} else {
@@ -237,6 +238,7 @@ func (e *Engine) run() {
 				e.emitStatus()
 			}
 		case err := <-outputDone:
+			e.outputJob = nil
 			if err == nil {
 				e.stop()
 			} else {
@@ -302,7 +304,7 @@ func (e *Engine) stop() error {
 	var derr error
 	var oerr error
 
-	e.ring.Close()
+	e.ring.Close(true)
 	if e.decodeJob != nil {
 		e.decodeJob.Wait()
 		e.decodeJob = nil
@@ -366,9 +368,8 @@ func (e *Engine) next(auto bool) error {
 		if e.plistPos == e.plist.Len()-1 {
 			// End of the playlist. Playback will be stopped by
 			// outputLoop's signal.
+			e.ring.Close(false)
 
-			// TODO: Mark ring somehow that this is
-			//       the end of the track.
 			return nil
 		}
 

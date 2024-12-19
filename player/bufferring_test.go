@@ -18,6 +18,10 @@
 package player
 
 import (
+	"crypto/sha1"
+	"fmt"
+	"math/rand"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,11 +29,50 @@ import (
 	"github.com/vchimishuk/chub/assert"
 )
 
+// TestIntegrity transfers a few megabytes of data and verify that data
+// is correct on consumer side.
+func TestIntegrity(t *testing.T) {
+	const datasz = 1024 * 1024 * 10
+	const bufsz = 512
+	const pages = datasz / bufsz
+
+	var wg sync.WaitGroup
+	r := NewBufferRing(bufsz, 64)
+	r.Open()
+
+	ch := sha1.New()
+	wg.Add(1)
+	go func() {
+		for b := r.Peek(); b != nil; b = r.Peek() {
+			ch.Write(b.data)
+			r.OfferFree(b)
+		}
+		wg.Done()
+	}()
+
+	ph := sha1.New()
+	for i := 0; i < pages; i++ {
+		b := r.PeekFree()
+
+		for j := 0; j < bufsz; j++ {
+			b.data[j] = byte(rand.Int())
+		}
+		ph.Write(b.data)
+		r.Offer(b)
+	}
+
+	r.Close(false)
+	wg.Wait()
+	chs := fmt.Sprintf("%x", ch.Sum(nil))
+	phs := fmt.Sprintf("%x", ph.Sum(nil))
+	assert.True(t, chs == phs)
+}
+
 func TestPeekFree(t *testing.T) {
 	nbuf := 16
 	c := NewBufferRing(512, nbuf)
 	c.Open()
-	defer c.Close()
+	defer c.Close(true)
 
 	for i := 0; i < nbuf; i++ {
 		b := c.PeekFree()
@@ -63,7 +106,7 @@ func TestPeek(t *testing.T) {
 		for r.Load() != int32(n) {
 			time.Sleep(time.Millisecond)
 		}
-		c.Close()
+		c.Close(true)
 	}()
 
 	go func() {
@@ -83,4 +126,38 @@ func TestPeek(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	assert.True(t, r.Load() == int32(n))
+}
+
+func TestCloseFlush(t *testing.T) {
+	r := NewBufferRing(8, 16)
+	r.Open()
+
+	r.Offer(r.PeekFree())
+	r.Offer(r.PeekFree())
+	r.Offer(r.PeekFree())
+	r.Close(true)
+
+	assert.True(t, r.Peek() == nil)
+}
+
+func TestCloseNotFlush(t *testing.T) {
+	r := NewBufferRing(8, 16)
+	r.Open()
+
+	r.Offer(r.PeekFree())
+	r.Offer(r.PeekFree())
+	r.Offer(r.PeekFree())
+	r.Close(false)
+
+	b := r.Peek()
+	assert.True(t, b != nil)
+	r.OfferFree(b)
+	b = r.Peek()
+	assert.True(t, b != nil)
+	r.OfferFree(b)
+	b = r.Peek()
+	assert.True(t, b != nil)
+	r.OfferFree(b)
+	b = r.Peek()
+	assert.True(t, b == nil)
 }
