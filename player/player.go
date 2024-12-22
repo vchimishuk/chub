@@ -41,6 +41,8 @@ type Player struct {
 	curPlist *Playlist
 	// Used output driver.
 	output Output
+	// Output volume level. 0..100
+	outputVol int
 	// Playback engine.
 	engine *Engine
 	// Channel to notify client that player state has been changed.
@@ -49,11 +51,12 @@ type Player struct {
 
 func New(fmts []format.Format, output Output) *Player {
 	p := &Player{
-		plists:   make(map[string]*Playlist),
-		curPlist: NewPlaylist(vfsPlistName),
-		output:   output,
-		engine:   NewEngine(fmts, output),
-		events:   make(chan Event, eventsChSize),
+		plists:    make(map[string]*Playlist),
+		curPlist:  NewPlaylist(vfsPlistName),
+		output:    output,
+		outputVol: 50,
+		engine:    NewEngine(fmts, output),
+		events:    make(chan Event, eventsChSize),
 	}
 	p.engine.Start()
 	p.engine.SetStatusHandler(func(s *Status) {
@@ -145,6 +148,23 @@ func (p *Player) Prev() error {
 
 func (p *Player) Seek(pos int, rel bool) error {
 	return p.engine.Seek(pos, rel)
+}
+
+func (p *Player) Volume() int {
+	return p.outputVol
+}
+
+func (p *Player) SetVolume(vol int, rel bool) error {
+	if rel {
+		vol = max(0, min(100, p.outputVol+vol))
+	}
+	err := p.engine.Volume(vol)
+	if err != nil {
+		return err
+	}
+	p.outputVol = vol
+
+	return nil
 }
 
 func (p *Player) Append(name string, path *vfs.Path) error {

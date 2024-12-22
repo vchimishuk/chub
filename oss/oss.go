@@ -125,6 +125,18 @@ func (o *Oss) Pause() error {
 	return nil
 }
 
+func (o *Oss) Volume() (int, error) {
+	vol, err := C.oss_volume(C.int(o.fd))
+
+	return int(vol), err
+}
+
+func (o *Oss) SetVolume(vol int) error {
+	_, err := C.oss_setvolume(C.int(o.fd), C.int(vol))
+
+	return err
+}
+
 func (o *Oss) Close() error {
 	o.Flush()
 	e, err := C.oss_close(C.int(o.fd))

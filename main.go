@@ -43,11 +43,18 @@ const (
 	ProgVersion = "0.0.1"
 )
 
+const (
+	DefaultConfigFile = "~/.config/chub/chub.conf"
+	DefaultStateFile  = "~/.config/chub/state"
+)
+
 var OptDescs = []*opt.Desc{
 	{"c", "config", opt.ArgString, "FILE",
 		"configuration file name"},
 	{"h", "help", opt.ArgNone, "",
 		"display this help and exit"},
+	{"s", "state", opt.ArgString, "FILE",
+		"state file name"},
 	{"v", "version", opt.ArgNone, "",
 		"output version information and exit"},
 }
@@ -106,7 +113,7 @@ func parseConfig(file string) (*vconfig.Config, error) {
 		return cfg, nil
 	}
 
-	f, err := expandPath("~/.config/chub/chub.conf")
+	f, err := expandPath(DefaultConfigFile)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +123,30 @@ func parseConfig(file string) (*vconfig.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func loadState(file string) (*config.State, error) {
+	if file == "" {
+		file = DefaultStateFile
+	}
+	f, err := expandPath(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return config.LoadState(f)
+}
+
+func saveState(file string, st *config.State) error {
+	if file == "" {
+		file = DefaultStateFile
+	}
+	f, err := expandPath(file)
+	if err != nil {
+		return err
+	}
+
+	return config.SaveState(f, st)
 }
 
 func main() {
@@ -143,6 +174,17 @@ func main() {
 		cfg = &vconfig.Config{}
 	}
 
+	stateFile := opts.StringOr("state", "")
+	state, err := loadState(stateFile)
+	if err != nil {
+		fatal("%s", err)
+	}
+	if state == nil {
+		state = &config.State{
+			Volume: 50,
+		}
+	}
+
 	ffmpegFmt := ffmpeg.NewFormat()
 	format.Register(ffmpegFmt)
 
@@ -162,6 +204,10 @@ func main() {
 	}
 
 	p := player.New([]format.Format{ffmpegFmt}, output)
+	err = p.SetVolume(state.Volume, false)
+	if err != nil {
+		fatal("failed to set volume: %s", err)
+	}
 
 	s := server.New(p)
 	err = s.Listen(cfg.StringOr("server-host", "0.0.0.0"),
@@ -170,6 +216,13 @@ func main() {
 		fatal("%s", err)
 	}
 	s.Serve()
+
+	state.Volume = p.Volume()
+	err = saveState(stateFile, state)
+	if err != nil {
+		logger.Error("failed to save state: %s", err)
+	}
+
 	err = p.Close()
 	if err != nil {
 		logger.Error("failed to close player: %s", err)

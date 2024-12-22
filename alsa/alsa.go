@@ -90,6 +90,14 @@ func (a *Alsa) Paused() bool {
 	return a.handle.Paused()
 }
 
+func (a *Alsa) Volume() (int, error) {
+	panic("TODO:")
+}
+
+func (a *Alsa) SetVolume(vol int) error {
+	panic("TODO:")
+}
+
 func (a *Alsa) Close() error {
 	return a.handle.Close()
 }

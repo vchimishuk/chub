@@ -45,6 +45,7 @@ func New(p *player.Player) *Server {
 	return s
 }
 
+// TODO: Join Listen() and Serve()?
 func (s *Server) Listen(addr string, port int) error {
 	ip, err := resolveAddr(addr)
 	if err != nil {

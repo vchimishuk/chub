@@ -35,4 +35,8 @@ type Output interface {
 	Pause() error
 	// Close closes output audio device.
 	Close() error
+	// Returns current volume level.
+	Volume() (int, error)
+	// Set output volume level.
+	SetVolume(vol int) error
 }

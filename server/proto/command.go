@@ -1,4 +1,4 @@
-// Copyright 2016, 2023 Viacheslav Chimishuk <vchimishuk@yandex.ru>
+// Copyright 2016-2024 Viacheslav Chimishuk <vchimishuk@yandex.ru>
 //
 // This file is part of Chub.
 //
@@ -65,7 +65,7 @@ const (
 	// Stop playing if active.
 	Stop = "stop"
 	// Change volume level.
-	Volumn = "volume"
+	Volume = "volume"
 )
 
 type Command struct {
@@ -87,7 +87,7 @@ func ParseCommand(str string) (*Command, error) {
 	}
 
 	switch name {
-	// TODO: Do not need boolean parameter for Seek.
+	// TODO: Do not need boolean parameter for Seek and Volume.
 	case Seek:
 		t, e := s.NextInt()
 		r := false
@@ -100,19 +100,40 @@ func ParseCommand(str string) (*Command, error) {
 		}
 		args = []interface{}{t, r}
 		err = e
+	case Volume:
+		var vol int
+		var mode bool
+		vol, err = s.NextInt()
+		if err != nil {
+			break
+
+		}
+		if s.HasNext() {
+			mode, err = s.NextBool()
+			if vol < -100 || vol > 100 {
+				err = newError("volume out of range")
+				break
+			}
+		} else {
+			if vol < 0 || vol > 100 {
+				err = newError("volume out of range")
+				break
+			}
+		}
+		args = []any{vol, mode}
 	// One bool argument command
 	case Events:
 		b, e := s.NextBool()
 		args = []interface{}{b}
 		err = e
-	// One string argument command.
+	// One string argument commands.
 	case CreatePlaylist, DeletePlaylist, List, Play, PlaylistClear:
 		fallthrough
 	case PlaylistDelete, PlaylistList:
 		p, e := s.NextString()
 		args = []interface{}{p}
 		err = e
-	// Two string arguments command.
+	// Two string arguments commands.
 	case PlaylistAppend, PlaylistRename:
 		b := ""
 		a, e := s.NextString()
@@ -121,7 +142,7 @@ func ParseCommand(str string) (*Command, error) {
 		}
 		args = []interface{}{a, b}
 		err = e
-	// Argumentless command.
+	// Argumentless commands.
 	case Kill, Next, Pause, Ping, Playlists:
 		fallthrough
 	case Prev, Quit, Status, Stop:

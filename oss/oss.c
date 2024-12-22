@@ -56,3 +56,22 @@ int oss_write(int fd, const void *buf, int bufsz)
 {
     return write(fd, buf, bufsz);
 }
+
+int oss_volume(int fd)
+{
+    int lvl;
+    int e = ioctl(fd, SNDCTL_DSP_GETPLAYVOL, &lvl);
+    if (e == -1) {
+        return -1;
+    }
+
+    // Return right channel.
+    return lvl >> 8;
+}
+
+int oss_setvolume(int fd, int vol)
+{
+    int lvl = (vol) | (vol << 8);
+
+    return ioctl(fd, SNDCTL_DSP_SETPLAYVOL, &lvl);
+}

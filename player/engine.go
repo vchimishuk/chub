@@ -68,6 +68,7 @@ const (
 	cmdSeek
 	cmdStatus
 	cmdStop
+	cmdVolume
 )
 
 type message struct {
@@ -82,6 +83,8 @@ type Engine struct {
 	fmts map[string]format.Format
 	// Active output.
 	output Output
+	// Output volume level.
+	outputVol int
 	// Active decoder.
 	decoder format.Decoder
 	// Active playlist.
@@ -162,6 +165,10 @@ func (e *Engine) Status() *Status {
 	return s.(*Status)
 }
 
+func (e *Engine) Volume(vol int) error {
+	return e.cmd(cmdVolume, []any{vol})
+}
+
 func (e *Engine) SetStatusHandler(h func(*Status)) {
 	e.statusHandler = h
 }
@@ -225,6 +232,8 @@ func (e *Engine) run() {
 					msg.args[1].(bool))
 			case cmdStatus:
 				m.Result <- e.status()
+			case cmdVolume:
+				m.Result <- e.volume(msg.args[0].(int))
 			default:
 				panic("unsupported command")
 			}
@@ -453,6 +462,17 @@ func (e *Engine) seek(pos int, rel bool) error {
 	panic("TODO:")
 }
 
+// Set current volume.
+func (e *Engine) volume(vol int) error {
+	e.outputVol = vol
+
+	if e.state == StatePlaying {
+		return e.output.SetVolume(vol)
+	}
+
+	return nil
+}
+
 // Open decoder & output drivers and prepare them for the playback process.
 func (e *Engine) openDecoderOutput() error {
 	err := e.openDecoder()
@@ -469,6 +489,7 @@ func (e *Engine) openDecoderOutput() error {
 
 	e.output.SetSampleRate(e.decoder.SampleRate())
 	e.output.SetChannels(e.decoder.Channels())
+	e.output.SetVolume(e.outputVol)
 
 	return nil
 }

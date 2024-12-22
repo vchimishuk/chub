@@ -24,5 +24,7 @@ int oss_sample_rate(int fd, int rate);
 int oss_channels(int fd, int channels);
 int oss_format(int fd, int fmt);
 int oss_write(int fd, const void *buf, int bufsz);
+int oss_volume(int fd);
+int oss_setvolume(int fd, int vol);
 
 #endif // CHUB_OSS_H

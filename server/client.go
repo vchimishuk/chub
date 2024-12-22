@@ -109,6 +109,8 @@ func (c *client) Serve() {
 				recs = c.playlists()
 			case proto.Prev:
 				err = c.player.Prev()
+			case proto.Quit:
+				err = errQuit
 			case proto.Seek:
 				err = c.player.Seek(cmd.Args[0].(int),
 					cmd.Args[1].(bool))
@@ -116,8 +118,9 @@ func (c *client) Serve() {
 				recs = c.status()
 			case proto.Stop:
 				err = c.player.Stop()
-			case proto.Quit:
-				err = errQuit
+			case proto.Volume:
+				err = c.player.SetVolume(cmd.Args[0].(int),
+					cmd.Args[1].(bool))
 			default:
 				panic("unsupported command")
 			}
