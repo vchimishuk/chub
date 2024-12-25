@@ -556,7 +556,7 @@ loop:
 		}
 
 		buf.plistPos = e.plistPos
-		buf.trackPos = time
+		buf.trackPos = time - t.Start
 		n, err = e.decoder.Read(buf.data[0:cap(buf.data)])
 		if err != nil {
 			// Decoding error -- return the error.
