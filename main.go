@@ -134,7 +134,12 @@ func loadState(file string) (*config.State, error) {
 		return nil, err
 	}
 
-	return config.LoadState(f)
+	st, err := config.LoadState(f)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	return st, nil
 }
 
 func saveState(file string, st *config.State) error {
