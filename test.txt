@@ -1,7 +1,0 @@
-vfs.root = /home/viacheslav
-#! test.int = 88
-#! # Some comment.
-#! unsupported = foo
-#! foo
-#! test.bool = true
-#! test.empty = 
