@@ -229,41 +229,27 @@ func (c *client) playlists() []serialize.Serializable {
 func (c *client) status() []serialize.Serializable {
 	st := c.player.Status()
 
-	if st.State == player.StateStopped {
-		return []serialize.Serializable{
-			serialize.Wrap(map[string]interface{}{
-				"state": "stopped",
-			}),
-		}
-	} else {
-		var s string
-		if st.State == player.StatePlaying {
-			s = "playing"
-		} else if st.State == player.StatePaused {
-			s = "paused"
-		} else {
-			panic("invalid state")
-		}
-		track := st.Plist.Get(st.PlistPos)
+	stm := map[string]any{}
+	stm["state"] = st.State.String()
+	stm["volume"] = c.player.Volume()
 
-		return []serialize.Serializable{
-			serialize.Wrap(map[string]interface{}{
-				"state":             s,
-				"playlist-position": st.PlistPos,
-				"track-position":    st.Pos,
-				"playlist-name":     st.Plist.Name(),
-				"playlist-duration": st.Plist.Duration(),
-				"playlist-length":   st.Plist.Len(),
-				"track-path":        track.Path.String(),
-				"track-artist":      track.Tag.Artist,
-				"track-album":       track.Tag.Album,
-				"track-title":       track.Tag.Title,
-				"track-number":      track.Tag.Number,
-				"track-year":        track.Tag.Year,
-				"track-length":      track.Length,
-			}),
-		}
+	if st.State != player.StateStopped {
+		track := st.Plist.Get(st.PlistPos)
+		stm["playlist-position"] = st.PlistPos
+		stm["track-position"] = st.Pos
+		stm["playlist-name"] = st.Plist.Name()
+		stm["playlist-duration"] = st.Plist.Duration()
+		stm["playlist-length"] = st.Plist.Len()
+		stm["track-path"] = track.Path.String()
+		stm["track-artist"] = track.Tag.Artist
+		stm["track-album"] = track.Tag.Album
+		stm["track-title"] = track.Tag.Title
+		stm["track-number"] = track.Tag.Number
+		stm["track-year"] = track.Tag.Year
+		stm["track-length"] = track.Length
 	}
+
+	return []serialize.Serializable{serialize.Wrap(stm)}
 }
 
 func serializableSlice[E serialize.Serializable](s []E) []serialize.Serializable {
