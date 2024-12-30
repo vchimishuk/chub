@@ -29,6 +29,7 @@ type Event interface {
 
 type StatusEvent struct {
 	State    State
+	Volume   int
 	Plist    *Playlist
 	PlistPos int
 	Track    *vfs.Track
@@ -40,27 +41,25 @@ func (e *StatusEvent) Name() string {
 }
 
 func (e *StatusEvent) Serialize() []serialize.Serializable {
-	if e.State == StateStopped {
-		return []serialize.Serializable{serialize.Wrap(map[string]any{
-			"state": e.State.String(),
-		})}
-	} else {
-		return []serialize.Serializable{serialize.Wrap(map[string]any{
-			"playlist-duration": e.Plist.Duration(),
-			"playlist-length":   e.Plist.Len(),
-			"playlist-name":     e.Plist.Name(),
-			"playlist-position": e.PlistPos,
-			"state":             e.State.String(),
-			"track-album":       e.Track.Tag.Album,
-			"track-artist":      e.Track.Tag.Artist,
-			"track-length":      e.Track.Length,
-			"track-number":      e.Track.Tag.Number,
-			"track-path":        e.Track.Path.String(),
-			"track-position":    e.TrackPos,
-			"track-title":       e.Track.Tag.Title,
-			"track-year":        e.Track.Tag.Year,
-		})}
+	st := map[string]any{}
+	st["state"] = e.State.String()
+	st["volume"] = e.Volume
+	if e.State != StateStopped {
+		st["playlist-duration"] = e.Plist.Duration()
+		st["playlist-length"] = e.Plist.Len()
+		st["playlist-name"] = e.Plist.Name()
+		st["playlist-position"] = e.PlistPos
+		st["track-album"] = e.Track.Tag.Album
+		st["track-artist"] = e.Track.Tag.Artist
+		st["track-length"] = e.Track.Length
+		st["track-number"] = e.Track.Tag.Number
+		st["track-path"] = e.Track.Path.String()
+		st["track-position"] = e.TrackPos
+		st["track-title"] = e.Track.Tag.Title
+		st["track-year"] = e.Track.Tag.Year
 	}
+
+	return []serialize.Serializable{serialize.Wrap(st)}
 }
 
 type PlistCreateEvent struct {

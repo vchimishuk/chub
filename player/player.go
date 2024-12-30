@@ -60,19 +60,18 @@ func New(fmts []format.Format, output Output) *Player {
 	}
 	p.engine.Start()
 	p.engine.SetStatusHandler(func(s *Status) {
-		if s.State == StateStopped {
-			p.notify(&StatusEvent{
-				State: s.State,
-			})
-		} else {
-			p.notify(&StatusEvent{
-				State:    s.State,
-				Plist:    s.Plist,
-				PlistPos: s.PlistPos,
-				Track:    s.Plist.Get(s.PlistPos),
-				TrackPos: s.Pos,
-			})
+		e := &StatusEvent{
+			State:  s.State,
+			Volume: p.Volume(),
 		}
+		if s.State != StateStopped {
+			e.State = s.State
+			e.Plist = s.Plist
+			e.PlistPos = s.PlistPos
+			e.Track = s.Plist.Get(s.PlistPos)
+			e.TrackPos = s.Pos
+		}
+		p.notify(e)
 	})
 
 	return p
