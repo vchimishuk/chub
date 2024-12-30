@@ -34,6 +34,7 @@ type Oss struct {
 	rate   int
 	chans  int
 	paused bool
+	volume int
 }
 
 func New() *Oss {
@@ -113,8 +114,17 @@ func (o *Oss) Pause() error {
 
 	if o.paused {
 		err = o.Open()
+		if err != nil {
+			return err
+		}
+		err = o.SetVolume(o.volume)
 		o.paused = false
 	} else {
+		// Remember volume to restore in when un-paused.
+		o.volume, err = o.Volume()
+		if err != nil {
+			return err
+		}
 		err = o.Close()
 		o.paused = true
 	}
@@ -132,6 +142,7 @@ func (o *Oss) Volume() (int, error) {
 }
 
 func (o *Oss) SetVolume(vol int) error {
+	o.volume = vol
 	_, err := C.oss_setvolume(C.int(o.fd), C.int(vol))
 
 	return err
