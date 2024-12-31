@@ -59,20 +59,7 @@ func New(fmts []format.Format, output Output) *Player {
 		events:    make(chan Event, eventsChSize),
 	}
 	p.engine.Start()
-	p.engine.SetStatusHandler(func(s *Status) {
-		e := &StatusEvent{
-			State:  s.State,
-			Volume: p.Volume(),
-		}
-		if s.State != StateStopped {
-			e.State = s.State
-			e.Plist = s.Plist
-			e.PlistPos = s.PlistPos
-			e.Track = s.Plist.Get(s.PlistPos)
-			e.TrackPos = s.Pos
-		}
-		p.notify(e)
-	})
+	p.engine.SetStatusHandler(p.notifyStatus)
 
 	return p
 }
@@ -162,6 +149,7 @@ func (p *Player) SetVolume(vol int, rel bool) error {
 		return err
 	}
 	p.outputVol = vol
+	p.notifyStatus(p.Status())
 
 	return nil
 }
@@ -283,6 +271,21 @@ func (p *Player) Playlists() []*Playlist {
 
 func (p *Player) Status() *Status {
 	return p.engine.Status()
+}
+
+func (p *Player) notifyStatus(s *Status) {
+	e := &StatusEvent{
+		State:  s.State,
+		Volume: p.Volume(),
+	}
+	if s.State != StateStopped {
+		e.State = s.State
+		e.Plist = s.Plist
+		e.PlistPos = s.PlistPos
+		e.Track = s.Plist.Get(s.PlistPos)
+		e.TrackPos = s.Pos
+	}
+	p.notify(e)
 }
 
 func (p *Player) userPlist(name string) (*Playlist, error) {
