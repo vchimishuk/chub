@@ -19,11 +19,12 @@ Chub is inspired by the [MPD](https://www.musicpd.org) and
 * Supported OSes: GNU/Linux, FreeBSD, ~~OpenBSD~~.
 
 ### Build and run
-The app can build and run using standard `go` commands.
+The app can build and run using standard `go` command.
 ```
 $ go build
 $ go run main.go
 ```
+It is also possible to easy build a package for some operation systems. See `dist` folder in the current source distribution.
 
 ### Configuration
-Chub is configured using `~/.config/chub/chub.conf` configuration file. See `chub.conf.example` file in the current source distribution for details.
+Chub is configured using `~/.config/chub/chub.conf` configuration file. See man page and `chub.conf.example` file in the current source distribution for details.
