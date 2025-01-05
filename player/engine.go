@@ -205,7 +205,7 @@ func (e *Engine) run() {
 					e.stop()
 				}
 				m.Result <- e.play(msg.args[0].(*Playlist),
-					msg.args[1].(int))
+					msg.args[1].(int), 0)
 				e.emitStatus()
 			case cmdClose:
 				m.Result <- e.stop()
@@ -282,7 +282,7 @@ func (e *Engine) status() *Status {
 // play starts playback procedure from stopped state.
 // After track specified by `pos` finished playback moves to the next track
 // in the playlist automatically.
-func (e *Engine) play(plist *Playlist, pos int) error {
+func (e *Engine) play(plist *Playlist, plistPos int, trackPos int) error {
 	if e.state != StateStopped {
 		err := e.stop()
 		if err != nil {
@@ -291,13 +291,23 @@ func (e *Engine) play(plist *Playlist, pos int) error {
 	}
 
 	e.plist = plist
-	e.plistPos = pos
+	e.plistPos = plistPos
 	e.stPlistPos = e.plistPos
 	e.stTrackPos = 0
 
 	err := e.openDecoderOutput()
 	if err != nil {
 		return err
+	}
+
+	if trackPos != 0 {
+		t := e.plist.Get(e.plistPos)
+		err := e.decoder.Seek(t.Start + trackPos)
+		if err != nil {
+			e.decoder.Close()
+			e.decoder = nil
+			return err
+		}
 	}
 
 	e.ring.Open()
@@ -419,7 +429,7 @@ func (e *Engine) next(auto bool) error {
 		if err != nil {
 			return err
 		}
-		err = e.play(e.plist, plistPos+1)
+		err = e.play(e.plist, plistPos+1, 0)
 		if err != nil {
 			return err
 		}
@@ -447,7 +457,7 @@ func (e *Engine) prev() error {
 	if err != nil {
 		return err
 	}
-	err = e.play(e.plist, plistPos-1)
+	err = e.play(e.plist, plistPos-1, 0)
 	if err != nil {
 		return err
 	}
@@ -457,9 +467,39 @@ func (e *Engine) prev() error {
 
 // Change current track playback position.
 func (e *Engine) seek(pos int, rel bool) error {
+	// TODO: Current seek() implementation is very very slow. We need more
+	//       sophisticated implementation instead. Is should not re-open
+	//       decoder and output.
 	// TODO: Support seek when StatePaused.
-	// TODO: Seek must use e.stTrackPos as a current time.
-	panic("TODO:")
+
+	if e.state != StatePlaying {
+		return nil
+	}
+
+	err := e.stop()
+	if err != nil {
+		return err
+	}
+
+	t := e.plist.Get(e.stPlistPos)
+	plistPos := e.stPlistPos
+	var trackPos int
+	if rel {
+		trackPos = e.stTrackPos + pos
+	} else {
+		trackPos = pos
+	}
+	trackPos = max(0, trackPos)
+	if t.Part {
+		trackPos = min(t.End, trackPos)
+	}
+
+	err = e.play(e.plist, plistPos, trackPos)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Set current volume.
