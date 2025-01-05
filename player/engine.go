@@ -308,6 +308,7 @@ func (e *Engine) play(plist *Playlist, plistPos int, trackPos int) error {
 			e.decoder = nil
 			return err
 		}
+		e.stTrackPos = trackPos
 	}
 
 	e.ring.Open()
