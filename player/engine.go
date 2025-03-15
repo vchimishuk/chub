@@ -295,6 +295,10 @@ func (e *Engine) play(plist *Playlist, plistPos int, trackPos int) error {
 	e.stPlistPos = e.plistPos
 	e.stTrackPos = 0
 
+	if plist.Len() == 0 {
+		return nil
+	}
+
 	err := e.openDecoderOutput()
 	if err != nil {
 		return err
