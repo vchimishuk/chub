@@ -243,7 +243,7 @@ func (e *Engine) run() {
 				e.next(true)
 			} else {
 				logger.Error("decoding failed: %s", err)
-				e.stop()
+				e.next(false)
 				e.emitStatus()
 			}
 		case err := <-outputDone:
