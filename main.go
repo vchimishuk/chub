@@ -35,6 +35,7 @@ import (
 	"github.com/vchimishuk/chub/player"
 	"github.com/vchimishuk/chub/server"
 	"github.com/vchimishuk/chub/vfs"
+	"github.com/vchimishuk/chub/vfs/db"
 	"github.com/vchimishuk/opt"
 )
 
@@ -45,7 +46,8 @@ const (
 
 const (
 	DefaultConfigFile = "~/.config/chub/chub.conf"
-	DefaultStateFile  = "~/.config/chub/state"
+	DefaultDbFile     = "~/.local/share/chub/db"
+	DefaultStateFile  = "~/.local/share/chub/state"
 )
 
 var OptDescs = []*opt.Desc{
@@ -193,6 +195,15 @@ func main() {
 	ffmpegFmt := ffmpeg.NewFormat()
 	format.Register(ffmpegFmt)
 
+	dbFile, err := expandPath(DefaultDbFile)
+	if err != nil {
+		panic(err)
+	}
+	err = db.Open(dbFile)
+	if err != nil {
+		fatal("cannot open metadata database: %s", err)
+	}
+
 	err = vfs.SetRoot(cfg.StringOr("vfs-root", "/"))
 	if err != nil {
 		panic(err)
@@ -231,5 +242,10 @@ func main() {
 	err = p.Close()
 	if err != nil {
 		logger.Error("failed to close player: %s", err)
+	}
+
+	err = db.Close()
+	if err != nil {
+		logger.Error("close metadata database failed: %s", err)
 	}
 }

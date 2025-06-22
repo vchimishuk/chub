@@ -1,3 +1,5 @@
+github.com/akrylysov/pogreb v0.10.2 h1:e6PxmeyEhWyi2AKOBIJzAEi4HkiC+lKyCocRGlnDi78=
+github.com/akrylysov/pogreb v0.10.2/go.mod h1:pNs6QmpQ1UlTJKDezuRWmaqkgUE2TuU0YTWyqJZ7+lI=
 github.com/vchimishuk/config v0.0.0-20230910195755-ed7bd1b64558 h1:xFPdx9mb/yu4bFDgZmuuLd2M6F+f9jYYtHTE5Yw8iHE=
 github.com/vchimishuk/config v0.0.0-20230910195755-ed7bd1b64558/go.mod h1:4/fxN1V3/I1ujlZv5gf0KzQOv3/4nObqzqvkC4uf3X4=
 github.com/vchimishuk/opt v0.0.0-20160918213041-e09d5e511662 h1:lfnqx9S4HdQgBI2bcBvo5736IA2+2nGMT8z2JrIKy50=

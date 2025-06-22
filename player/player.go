@@ -75,7 +75,11 @@ func (p *Player) Close() error {
 func (p *Player) Play(path *vfs.Path) error {
 	// Fill VFS playlist.
 	var dir *vfs.Path
-	if path.IsDir() {
+	id, err := path.IsDir()
+	if err != nil {
+		return err
+	}
+	if id {
 		dir = path
 	} else {
 		d, err := path.Parent()
@@ -320,7 +324,11 @@ func (p *Player) notify(e Event) {
 func listDirRec(path *vfs.Path) ([]*vfs.Track, error) {
 	var tracks []*vfs.Track
 
-	if path.IsDir() {
+	d, err := path.IsDir()
+	if err != nil {
+		return nil, err
+	}
+	if d {
 		entries, err := path.List()
 		if err != nil {
 			return nil, err

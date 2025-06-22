@@ -204,7 +204,11 @@ func (c *client) list(path string) ([]serialize.Serializable, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !p.IsDir() {
+	d, err := p.IsDir()
+	if err != nil {
+		return nil, err
+	}
+	if !d {
 		return nil, errors.New("not a directory")
 	}
 	es, err := p.List()

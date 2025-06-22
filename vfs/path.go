@@ -40,19 +40,20 @@ type Path struct {
 	root    string
 	val     string
 	file    string
-	dir     bool
 	part    bool
 	partNum int
+	fi      os.FileInfo
 }
 
 var root string = "/"
 
+// TODO: Rename to Chroot.
 func SetRoot(dir string) error {
-	d, err := isDir(dir)
+	fi, err := os.Stat(dir)
 	if err != nil {
 		return err
 	}
-	if !d {
+	if !fi.IsDir() {
 		return errors.New("not a directory")
 	}
 	root = dir
@@ -63,16 +64,11 @@ func SetRoot(dir string) error {
 func NewPath(p string) (*Path, error) {
 	pp, n := splitPath(p)
 	fp := filePath(root, pp)
-	dir, err := isDir(fp)
-	if err != nil {
-		return nil, err
-	}
 
 	return &Path{
 		root:    root,
 		file:    fp,
 		val:     pp,
-		dir:     dir,
 		part:    n >= 0,
 		partNum: n,
 	}, nil
@@ -94,8 +90,13 @@ func (p *Path) Base() string {
 	return path.Base(p.val)
 }
 
-func (p *Path) IsDir() bool {
-	return p.dir
+func (p *Path) IsDir() (bool, error) {
+	fi, err := p.FileInfo()
+	if err != nil {
+		return false, err
+	}
+
+	return fi.IsDir(), nil
 }
 
 func (p *Path) String() string {
@@ -107,7 +108,11 @@ func (p *Path) String() string {
 }
 
 func (p *Path) Dir() (*Dir, error) {
-	if !p.IsDir() {
+	d, err := p.IsDir()
+	if err != nil {
+		return nil, err
+	}
+	if !d {
 		return nil, fmt.Errorf("'%s 'is not directory", p)
 	}
 
@@ -115,7 +120,11 @@ func (p *Path) Dir() (*Dir, error) {
 }
 
 func (p *Path) Track() (*Track, error) {
-	if p.IsDir() {
+	d, err := p.IsDir()
+	if err != nil {
+		return nil, err
+	}
+	if d {
 		return nil, fmt.Errorf("'%s' is not track", p)
 	}
 
@@ -152,7 +161,11 @@ func (p *Path) List() ([]Entry, error) {
 	// Result entries list is formed from selected directories list
 	// and selected tracks list appended.
 
-	if !p.IsDir() {
+	d, err := p.IsDir()
+	if err != nil {
+		return nil, err
+	}
+	if !d {
 		return nil, fmt.Errorf("'%s' is not directory", p)
 	}
 
@@ -177,6 +190,18 @@ func (p *Path) Ext() string {
 	return ext(p.val)
 }
 
+func (p *Path) FileInfo() (os.FileInfo, error) {
+	if p.fi == nil {
+		var err error
+		p.fi, err = os.Stat(p.file)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return p.fi, nil
+}
+
 // readDirs returns sorted list of all directories for the given path.
 // Parameter is garanteed to be a folder.
 func readDirs(p *Path) ([]Entry, error) {
@@ -198,7 +223,11 @@ func readDirs(p *Path) ([]Entry, error) {
 		if err != nil {
 			return nil, err
 		}
-		if cp.IsDir() {
+		d, err := cp.IsDir()
+		if err != nil {
+			return nil, err
+		}
+		if d {
 			dirs = append(dirs, &Dir{Path: cp, Name: name})
 		}
 	}
@@ -236,7 +265,11 @@ func readTracks(p *Path) ([]Entry, error) {
 		if err != nil {
 			return nil, err
 		}
-		if cp.IsDir() {
+		d, err := cp.IsDir()
+		if err != nil {
+			return nil, err
+		}
+		if d {
 			continue
 		}
 		if cp.Ext() == cueExt {
@@ -383,7 +416,7 @@ func newTrack(p *Path) (*Track, error) {
 
 		return nil, errors.New("track not found")
 	} else {
-		md, err := format.GetMetadata(p.File())
+		md, err := getMetadata(p)
 		if err != nil {
 			return nil, err
 		}
@@ -392,24 +425,15 @@ func newTrack(p *Path) (*Track, error) {
 		return &Track{
 			Path: p,
 			Tag: &Tag{
-				Artist: md.Artist(),
-				Album:  md.Album(),
-				Year:   md.Year(),
-				Title:  md.Title(),
-				Number: md.Number(),
+				Artist: md.Artist,
+				Album:  md.Album,
+				Year:   md.Year,
+				Title:  md.Title,
+				Number: md.Number,
 			},
-			Length: md.Length(),
+			Length: md.Length,
 		}, nil
 	}
-}
-
-func isDir(p string) (bool, error) {
-	fi, err := os.Stat(p)
-	if err != nil {
-		return false, err
-	}
-
-	return fi.IsDir(), nil
 }
 
 func filePath(root string, p string) string {
