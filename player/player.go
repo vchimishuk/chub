@@ -105,7 +105,7 @@ func (p *Player) Play(path *vfs.Path) error {
 			// TODO: Avoid coping plist all the time,
 			//       use bulk append instead.
 			p.curPlist = p.curPlist.Append(t)
-			if *path == *t.Path {
+			if path.String() == t.Path.String() {
 				pos = i
 			}
 			i++
