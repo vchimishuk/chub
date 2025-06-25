@@ -55,6 +55,8 @@ var OptDescs = []*opt.Desc{
 		"configuration file name"},
 	{"h", "help", opt.ArgNone, "",
 		"display this help and exit"},
+	{"i", "init-db", opt.ArgNone, "",
+		"scan filesystem and save tracks metadata in DB"},
 	{"s", "state", opt.ArgString, "FILE",
 		"state file name"},
 	{"v", "version", opt.ArgNone, "",
@@ -156,6 +158,25 @@ func saveState(file string, st *config.State) error {
 	return config.SaveState(f, st)
 }
 
+// walkPath simply walks over VFS tracks. When track is requested metadata
+// is created and cached in DB automatically.
+func walkPath(p *vfs.Path) error {
+	es, err := p.List()
+	if err != nil {
+		return err
+	}
+	for _, e := range es {
+		if e.IsDir() {
+			walkPath(e.Dir().Path)
+		} else {
+			t := e.Track()
+			fmt.Println(t.Path.String())
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	opts, args, err := opt.Parse(os.Args[1:], OptDescs)
 	if err != nil {
@@ -164,11 +185,11 @@ func main() {
 	if len(args) != 0 {
 		fatal("unexpected argument")
 	}
-	if opts.Bool("help") {
+	if opts.Has("help") {
 		printUsage()
 		os.Exit(1)
 	}
-	if opts.Bool("version") {
+	if opts.Has("version") {
 		printVersion()
 		os.Exit(1)
 	}
@@ -204,44 +225,54 @@ func main() {
 		fatal("cannot open metadata database: %s", err)
 	}
 
-	err = vfs.SetRoot(cfg.StringOr("vfs-root", "/"))
+	root := cfg.StringOr("vfs-root", "/")
+	err = vfs.SetRoot(root)
 	if err != nil {
 		panic(err)
 	}
 
-	var output player.Output
-	switch cfg.StringOr("output", "alsa") {
-	case "alsa":
-		output = alsa.New()
-	case "oss":
-		output = oss.New()
-	default:
-		panic("unsupported output")
-	}
+	if opts.Has("init-db") {
+		// TODO: Handle error?
+		p, _ := vfs.NewPath("/")
+		err := walkPath(p)
+		if err != nil {
+			logger.Error("failed to read path: %s", err)
+		}
+	} else {
+		var output player.Output
+		switch cfg.StringOr("output", "alsa") {
+		case "alsa":
+			output = alsa.New()
+		case "oss":
+			output = oss.New()
+		default:
+			panic("unsupported output")
+		}
 
-	p := player.New([]format.Format{ffmpegFmt}, output)
-	err = p.SetVolume(state.Volume, false)
-	if err != nil {
-		fatal("failed to set volume: %s", err)
-	}
+		p := player.New([]format.Format{ffmpegFmt}, output)
+		err = p.SetVolume(state.Volume, false)
+		if err != nil {
+			fatal("failed to set volume: %s", err)
+		}
 
-	s := server.New(p)
-	err = s.Listen(cfg.StringOr("server-host", "0.0.0.0"),
-		cfg.IntOr("server-port", 5115))
-	if err != nil {
-		fatal("%s", err)
-	}
-	s.Serve()
+		s := server.New(p)
+		err = s.Listen(cfg.StringOr("server-host", "0.0.0.0"),
+			cfg.IntOr("server-port", 5115))
+		if err != nil {
+			fatal("%s", err)
+		}
+		s.Serve()
 
-	state.Volume = p.Volume()
-	err = saveState(stateFile, state)
-	if err != nil {
-		logger.Error("failed to save state: %s", err)
-	}
+		state.Volume = p.Volume()
+		err = saveState(stateFile, state)
+		if err != nil {
+			logger.Error("failed to save state: %s", err)
+		}
 
-	err = p.Close()
-	if err != nil {
-		logger.Error("failed to close player: %s", err)
+		err = p.Close()
+		if err != nil {
+			logger.Error("failed to close player: %s", err)
+		}
 	}
 
 	err = db.Close()
