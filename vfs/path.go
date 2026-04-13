@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	"github.com/vchimishuk/chub/cue"
-	"github.com/vchimishuk/chub/format"
 )
 
 const cueExt = "cue"
@@ -368,12 +367,11 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 		}
 		end = ii.Time.Seconds()
 	} else {
-		// TODO: Register formats in VFS package.
-		md, err := format.GetMetadata(pth.File())
+		md, err := getMetadata(pth)
 		if err != nil {
 			return nil, err
 		}
-		end = md.Length()
+		end = md.Length
 	}
 
 	return &Track{
