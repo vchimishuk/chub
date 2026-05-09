@@ -88,6 +88,13 @@ func (time *Time) Seconds() int {
 	return time.Min*60 + time.Sec
 }
 
+// Milliseconds returns length in milliseconds.
+func (time *Time) Milliseconds() int {
+	return time.Min*60*1000 +
+		time.Sec*1000 +
+		int(float32(time.Frames)*1/75*1000)
+}
+
 // Track index type
 type Index struct {
 	// Index number.

@@ -14,7 +14,8 @@ type metadata struct {
 	Year     int
 	Title    string
 	Number   int
-	Length   int
+	// TODO: Rename to Duration
+	Length int
 }
 
 func getMetadata(path *Path) (*metadata, error) {

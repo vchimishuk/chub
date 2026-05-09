@@ -41,8 +41,7 @@ type Decoder interface {
 	Read(buf []byte) (read int, err error)
 	// Seek sets new position in seconds to start decoding from.
 	Seek(pos int) error
-	// Time returns current decoded position in seconds.
-	// TODO: Time should be in millis or nanos.
+	// Time returns current decoded position in milliseconds.
 	Time() int
 	// SampleRate returns sample rate of decoded stream.
 	SampleRate() int

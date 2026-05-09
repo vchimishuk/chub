@@ -32,6 +32,11 @@ static void *zmalloc(size_t n)
     return p;
 }
 
+static int ffmpeg_time_ms(int64_t time, AVRational base)
+{
+    return av_rescale_q(time, base, av_make_q(1, 1000));
+}
+
 // Send next packet for decoding.
 // Returns 0 if success or negative number in case of error.
 static int ffmpeg_send_packet(struct ffmpeg_file *file)
@@ -236,7 +241,7 @@ struct ffmpeg_metadata *ffmpeg_metadata(struct ffmpeg_file *file)
 {
     AVStream *s = file->format->streams[file->stream];
     struct ffmpeg_metadata *md = zmalloc(sizeof(struct ffmpeg_metadata));
-    md->duration = (int) (av_q2d(s->time_base) * s->duration);
+    md->duration = ffmpeg_time_ms(s->duration, s->time_base);
 
     AVDictionary *m = file->format->metadata;
     AVDictionaryEntry *tag = NULL;
@@ -371,9 +376,8 @@ int ffmpeg_seek(struct ffmpeg_file *file, int pos)
 int ffmpeg_time(struct ffmpeg_file *file)
 {
     AVStream *s = file->format->streams[file->stream];
-    int ts = file->time * av_q2d(s->time_base);
 
-    return ts;
+    return ffmpeg_time_ms(file->time, s->time_base);
 }
 
 int ffmpeg_channels(struct ffmpeg_file *file)

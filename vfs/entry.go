@@ -78,7 +78,7 @@ type Track struct {
 	Path *Path
 	// Track media information.
 	Tag *Tag
-	// Track length in seconds.
+	// Track length in milliseconds.
 	// TODO: Rename to Duration to be consistent with Playlist.
 	Length int
 	// If Part is true it means this track represents piece of the

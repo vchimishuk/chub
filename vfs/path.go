@@ -357,7 +357,7 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 		return nil, errors.New("CUE start INDEX not found")
 	}
 
-	var start int = i.Time.Seconds()
+	var start int = i.Time.Milliseconds()
 	var end int
 
 	if ti < len(f.Tracks)-1 {
@@ -365,7 +365,7 @@ func cueSheetFileTrack(base *Path, sheet *cue.Sheet, file int, track int) (*Trac
 		if ii == nil {
 			return nil, errors.New("CUE start INDEX not found")
 		}
-		end = ii.Time.Seconds()
+		end = ii.Time.Milliseconds()
 	} else {
 		md, err := getMetadata(pth)
 		if err != nil {
